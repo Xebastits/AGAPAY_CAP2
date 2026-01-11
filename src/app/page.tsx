@@ -1,100 +1,131 @@
 "use client";
 
-import thirdwebIcon from "@public/thirdweb.svg";
-import Image from "next/image";
-import { ConnectButton } from "thirdweb/react";
-import { client } from "./client";
+import { client } from "@/app/client";
+import { useActiveAccount } from "thirdweb/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { arcTestnet } from "thirdweb/chains";
+import { inAppWallet } from "thirdweb/wallets";
+import agapayLogo from './assets/favicon.png';
+import { lightTheme } from "thirdweb/react";
+import { isAdmin } from "./constants/constant";
+import NDAModal from "./components/NDAModal";
+import { AGAPAY_TOKEN_ADDRESS } from "./constants/constant";
+import { ConnectButton } from "./components/ConnectButton";
+
+
+const wallets = [
+  inAppWallet({
+    auth: {
+      options: ["google"],
+    },
+  }),
+];
 
 export default function Home() {
+  const account = useActiveAccount();
+  const router = useRouter();
+
+  const [showNDA, setShowNDA] = useState(false);
+  const [pendingAddress, setPendingAddress] = useState<string | null>(null);
+
+  // useEffect(() => {
+  //   if (!account?.address) return;
+
+  //   const ndaAccepted = localStorage.getItem("nda_accepted") === "true";
+
+  //   // --- IMPORTANT ---
+  //   // Detect if this page load is NEW or REFRESH
+  //   const refreshed = sessionStorage.getItem("has_refreshed") === "true";
+
+  //   // Mark this session as already refreshed once
+  //   if (!refreshed) {
+  //     sessionStorage.setItem("has_refreshed", "true");
+  //   }
+
+  //   // If the user refreshed the page:
+  //   if (refreshed) {
+  //     // Do NOT show NDA again on refresh → skip straight to redirect
+  //     if (isAdmin(account.address)) {
+  //       router.push("/admin");
+  //     } else {
+  //       router.push("/campaigns");
+  //     }
+  //     return;
+  //   }
+
+  //   // First time account connects (NO refresh)
+  //   if (!ndaAccepted) {
+  //     setPendingAddress(account.address);
+  //     setShowNDA(true);
+  //     return;
+  //   }
+
+  //   // If NDA already accepted
+  //   if (isAdmin(account.address)) {
+  //     router.push("/admin");
+  //   } else {
+  //     router.push("/campaigns");
+  //   }
+
+  // }, [account, router]);
+
+  const handleAcceptNDA = () => {
+    localStorage.setItem("nda_accepted", "true");
+    setShowNDA(false);
+
+    if (!pendingAddress) return;
+
+    if (isAdmin(pendingAddress)) {
+      router.push("/admin");
+    } else {
+      router.push("/campaigns");
+    }
+  };
+
   return (
-    <main className="p-4 pb-10 min-h-[100vh] flex items-center justify-center container max-w-screen-lg mx-auto">
-      <div className="py-20">
-        <Header />
+    <div className="min-h-screen flex items-center justify-center bg-slate-100">
+      <div className="text-center">
+        {/* 2. Use the variable in the src using curly braces */}
+        <img
+          src={agapayLogo.src}
+          alt="Agapay Logo"
+          className="mx-auto mb-4 w-64 h-auto"
+          draggable="false"
+          
+        />
 
-        <div className="flex justify-center mb-20">
-          <ConnectButton
-            client={client}
-            appMetadata={{
-              name: "Example App",
-              url: "https://example.com",
-            }}
-          />
-        </div>
+        <h1 className="text-4xl font-bold mb-8 text-slate-700">Agapay</h1>
+        <p className="text-lg mb-8 text-slate-600">Sign with your Google account to get started.</p>
+        <ConnectButton
 
-        <ThirdwebResources />
+          detailsButton={{
+            displayBalanceToken: {
+              [arcTestnet.id]: AGAPAY_TOKEN_ADDRESS, 
+            },
+          }}
+          connectButton={{
+            label: "Sign in"
+          }}
+          accountAbstraction={{
+            chain: arcTestnet,
+            sponsorGas: true,
+          }}
+          client={client}
+          connectModal={{
+            showThirdwebBranding: false, size: "compact",
+          }}
+          wallets={wallets}
+
+          detailsModal={{
+            hideSwitchWallet: true,
+          }}
+          theme={lightTheme()}
+        />
       </div>
-    </main>
-  );
-}
 
-function Header() {
-  return (
-    <header className="flex flex-col items-center mb-20 md:mb-20">
-      <Image
-        src={thirdwebIcon}
-        alt=""
-        className="size-[150px] md:size-[150px]"
-        style={{
-          filter: "drop-shadow(0px 0px 24px #a726a9a8)",
-        }}
-      />
-
-      <h1 className="text-2xl md:text-6xl font-semibold md:font-bold tracking-tighter mb-6 text-zinc-100">
-        thirdweb SDK
-        <span className="text-zinc-300 inline-block mx-1"> + </span>
-        <span className="inline-block -skew-x-6 text-blue-500"> Next.js </span>
-      </h1>
-
-      <p className="text-zinc-300 text-base">
-        Read the{" "}
-        <code className="bg-zinc-800 text-zinc-300 px-2 rounded py-1 text-sm mx-1">
-          README.md
-        </code>{" "}
-        file to get started.
-      </p>
-    </header>
-  );
-}
-
-function ThirdwebResources() {
-  return (
-    <div className="grid gap-4 lg:grid-cols-3 justify-center">
-      <ArticleCard
-        title="thirdweb SDK Docs"
-        href="https://portal.thirdweb.com/typescript/v5"
-        description="thirdweb TypeScript SDK documentation"
-      />
-
-      <ArticleCard
-        title="Components and Hooks"
-        href="https://portal.thirdweb.com/typescript/v5/react"
-        description="Learn about the thirdweb React components and hooks in thirdweb SDK"
-      />
-
-      <ArticleCard
-        title="thirdweb Dashboard"
-        href="https://thirdweb.com/dashboard"
-        description="Deploy, configure, and manage your smart contracts from the dashboard."
-      />
+      {/* NDA modal */}
+      <NDAModal isOpen={showNDA} onAccept={handleAcceptNDA} />
     </div>
   );
-}
-
-function ArticleCard(props: {
-  title: string;
-  href: string;
-  description: string;
-}) {
-  return (
-    <a
-      href={props.href + "?utm_source=next-template"}
-      target="_blank"
-      className="flex flex-col border border-zinc-800 p-4 rounded-lg hover:bg-zinc-900 transition-colors hover:border-zinc-700"
-    >
-      <article>
-        <h2 className="text-lg font-semibold mb-2">{props.title}</h2>
-        <p className="text-sm text-zinc-400">{props.description}</p>
-      </article>
-    </a>
-  );
-}
+}   
