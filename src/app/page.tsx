@@ -29,46 +29,46 @@ export default function Home() {
   const [showNDA, setShowNDA] = useState(false);
   const [pendingAddress, setPendingAddress] = useState<string | null>(null);
 
-  // useEffect(() => {
-  //   if (!account?.address) return;
+  useEffect(() => {
+    if (!account?.address) return;
 
-  //   const ndaAccepted = localStorage.getItem("nda_accepted") === "true";
+    const ndaAccepted = localStorage.getItem("nda_accepted") === "true";
 
-  //   // --- IMPORTANT ---
-  //   // Detect if this page load is NEW or REFRESH
-  //   const refreshed = sessionStorage.getItem("has_refreshed") === "true";
+    // --- IMPORTANT ---
+    // Detect if this page load is NEW or REFRESH
+    const refreshed = sessionStorage.getItem("has_refreshed") === "true";
 
-  //   // Mark this session as already refreshed once
-  //   if (!refreshed) {
-  //     sessionStorage.setItem("has_refreshed", "true");
-  //   }
+    // Mark this session as already refreshed once
+    if (!refreshed) {
+      sessionStorage.setItem("has_refreshed", "true");
+    }
 
-  //   // If the user refreshed the page:
-  //   if (refreshed) {
-  //     // Do NOT show NDA again on refresh → skip straight to redirect
-  //     if (isAdmin(account.address)) {
-  //       router.push("/admin");
-  //     } else {
-  //       router.push("/campaigns");
-  //     }
-  //     return;
-  //   }
+    // If the user refreshed the page:
+    if (refreshed) {
+      // Do NOT show NDA again on refresh → skip straight to redirect
+      if (isAdmin(account.address)) {
+        router.push("/admin");
+      } else {
+        router.push("/campaigns");
+      }
+      return;
+    }
 
-  //   // First time account connects (NO refresh)
-  //   if (!ndaAccepted) {
-  //     setPendingAddress(account.address);
-  //     setShowNDA(true);
-  //     return;
-  //   }
+    // First time account connects (NO refresh)
+    if (!ndaAccepted) {
+      setPendingAddress(account.address);
+      setShowNDA(true);
+      return;
+    }
 
-  //   // If NDA already accepted
-  //   if (isAdmin(account.address)) {
-  //     router.push("/admin");
-  //   } else {
-  //     router.push("/campaigns");
-  //   }
+    // If NDA already accepted
+    if (isAdmin(account.address)) {
+      router.push("/admin");
+    } else {
+      router.push("/campaigns");
+    }
 
-  // }, [account, router]);
+  }, [account, router]);
 
   const handleAcceptNDA = () => {
     localStorage.setItem("nda_accepted", "true");
@@ -98,12 +98,6 @@ export default function Home() {
         <h1 className="text-4xl font-bold mb-8 text-slate-700">Agapay</h1>
         <p className="text-lg mb-8 text-slate-600">Sign with your Google account to get started.</p>
         <ConnectButton
-
-          detailsButton={{
-            displayBalanceToken: {
-              [arcTestnet.id]: AGAPAY_TOKEN_ADDRESS, 
-            },
-          }}
           connectButton={{
             label: "Sign in"
           }}
