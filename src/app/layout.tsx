@@ -4,6 +4,8 @@ import "./globals.css";
 import { ThirdwebProvider } from "thirdweb/react";
 import Navbar from "./components/Navbar";
 import NDAWrapper from "./components/NDAWrapper";
+import { NetworkProvider } from "./constants/network";
+import AuthGuard from "./components/AuthGuard";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,12 +25,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body className={`${inter.className} text-slate-900 bg-white`}>
         <ThirdwebProvider>
-          <Navbar />
-            <NDAWrapper>
-              {children}
-            </NDAWrapper>
+          <NetworkProvider>
+            <AuthGuard />
+            <Navbar />
+            {children}
+          </NetworkProvider>
         </ThirdwebProvider>
       </body>
     </html>
