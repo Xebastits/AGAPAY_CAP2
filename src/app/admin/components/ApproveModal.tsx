@@ -59,7 +59,7 @@ export const ApproveCampaignModal = ({
 
           <p className="text-sm text-slate-900 mb-4">
             Approving this campaign will deploy{" "}
-            <strong>"{campaignName}"</strong> to the blockchain. This action is
+            <strong>&quot;{campaignName}&quot;</strong> to the blockchain. This action is
             irreversible.
           </p>
 

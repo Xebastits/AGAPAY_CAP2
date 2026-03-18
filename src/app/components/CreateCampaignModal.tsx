@@ -449,7 +449,7 @@ export default function CreateCampaignModal({
                                     <div>
                                         <div className="font-bold text-sm">I understand how I will receive the money.</div>
                                         <div className="text-xs text-slate-600">
-                                            I understand that fund disbursement will follow the platform's approved process and timeline.
+                                           I understand that fund disbursement will follow the platform&apos;s approved process and timeline.
                                         </div>
                                     </div>
                                 </label>

@@ -4,7 +4,7 @@ import { client } from "@/app/client";
 import { CROWDFUNDING_FACTORY } from "@/app/constants/constant";
 import { MyCampaignCard } from "../../components/CampaignCard";
 import RejectionGuidanceModal from "../../components/RejectionGuidanceModal";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { getContract } from "thirdweb";
 import { useActiveAccount, useReadContract } from "thirdweb/react";
 import CreateCampaignModal from "../../components/CreateCampaignModal";
@@ -23,7 +23,7 @@ type CampaignRequest = {
     description: string;
     status: string;
     rejectionReason?: string;
-    rejectionDetails?: string;   // <-- add this
+    rejectionDetails?: string;
     isEmergency?: boolean;
     createdAt?: number;
 };
@@ -59,7 +59,7 @@ export default function DashboardPage() {
         params: [account?.address || ""]
     });
 
-const fetchPendingRequests = async () => {
+    const fetchPendingRequests = useCallback(async () => {
         if (!account) return;
         try {
             const db = getDb();
@@ -67,13 +67,12 @@ const fetchPendingRequests = async () => {
                 console.warn("Firestore not available");
                 return;
             }
-            
+
             const q = query(collection(db, "campaigns"), where("creator", "==", account.address));
             const snapshot = await getDocs(q);
 
             const reqs = snapshot.docs.map(doc => {
                 const data = doc.data();
-                // Safety: Convert Firestore Timestamp to number if necessary
                 const createdAt = data.createdAt?.seconds
                     ? data.createdAt.seconds * 1000
                     : data.createdAt;
@@ -85,7 +84,6 @@ const fetchPendingRequests = async () => {
                 } as CampaignRequest;
             });
 
-            // SORTING LOGIC: Newest (largest number) to Oldest (smallest number)
             reqs.sort((a, b) => {
                 const dateA = a.createdAt || 0;
                 const dateB = b.createdAt || 0;
@@ -96,11 +94,11 @@ const fetchPendingRequests = async () => {
         } catch (error) {
             console.error("Error fetching requests:", error);
         }
-    };
+    }, [account]);
 
     useEffect(() => {
         if (account) fetchPendingRequests();
-    }, [account]);
+    }, [account, fetchPendingRequests]);
 
     // --- PAGINATION LOGIC ---
     const visiblePending = useMemo(() => {
@@ -137,7 +135,6 @@ const fetchPendingRequests = async () => {
             </div>
 
             {/* PENDING SECTION */}
-            {/* 1. FIXED HEIGHT CONTAINER: h-[44rem] ensures the box never changes size */}
             <div className="mb-12 bg-slate-50 border border-slate-200 rounded-lg p-6 h-[36rem] flex flex-col">
                 <h3 className="text-2xl font-bold text-slate-700 mb-4 flex-none">Your Requests Status</h3>
 
@@ -147,7 +144,6 @@ const fetchPendingRequests = async () => {
                     </div>
                 ) : (
                     <>
-                        {/* Content Area - Takes up available space */}
                         <div className="flex-1">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {visiblePending.map((req) => (
@@ -209,8 +205,6 @@ const fetchPendingRequests = async () => {
                                             </p>
                                         </div>
 
-
-
                                         {req.status === "rejected" && (
                                             <div className="text-xs text-red-600 bg-red-50 p-1.5 rounded mt-auto text-center font-bold">
                                                 View reason
@@ -221,7 +215,6 @@ const fetchPendingRequests = async () => {
                             </div>
                         </div>
 
-                        {/* 3. PAGINATION: Pinned to bottom using flex-none and margin-top-auto logic */}
                         <div className="flex-none pt-4 border-t border-slate-200 mt-4 h-16 flex items-center justify-center">
                             {totalPendingPages > 1 && (
                                 <div className="flex justify-center items-center gap-4 w-64 mx-auto">
