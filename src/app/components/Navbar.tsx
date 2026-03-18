@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { client } from "@/app/client";
 import Link from "next/link";
-import { lightTheme, useActiveAccount, useProfiles } from "thirdweb/react";
+import { lightTheme, useActiveAccount } from "thirdweb/react";
 import { ConnectButton } from "./ConnectButton";
 import Image from 'next/image';
 import agapayLogo from '../assets/favicon.png';
@@ -31,8 +31,6 @@ const Navbar = () => {
     const account = useActiveAccount();
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
-
-    //
 
 
 
@@ -119,28 +117,20 @@ const Navbar = () => {
                     <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                         <ConnectButton
                             client={client}
+                            chain={arcTestnet}
                             detailsButton={{
-                                
                                 // displayBalanceToken: {
                                 //     [arcTestnet.id]: AGAPAY_TOKEN_ADDRESS,
-                                // },
-                                showBalanceInFiat: 'USD',
-                                connectedAccountAvatarUrl: GOOGLE_AVATAR_URL,
-                                connectedAccountName: email || undefined,
                             }}
                             theme={lightTheme()}
                             connectButton={{
                                 label: "Sign in",
                             }}
-                            accountAbstraction={{
-                                chain: arcTestnet,
-                                sponsorGas: true,
-                            }}
                             connectModal={{
-                                showThirdwebBranding: false, size: "compact",
+                                showThirdwebBranding: false,
+                                size: "compact",
                             }}
                             wallets={wallets}
-
                         />
                     </div>
                 </div>
@@ -171,7 +161,7 @@ const Navbar = () => {
                                 </p>
                             </Link>
                         )}
-                                                    {/* <Link href="/audit" onClick={() => setIsOpen(false)}>
+                        {/* <Link href="/audit" onClick={() => setIsOpen(false)}>
                                 <p className="block rounded-md px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-200">
                                     Public Audit
                                 </p>

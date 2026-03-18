@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useActiveAccount } from "thirdweb/react";
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "@/app/lib/firebase";
+import { getDb } from "@/app/lib/firebase";
 import { uploadToCloudinary } from "@/app/lib/cloudinary";
 
 type CreateCampaignModalProps = {
@@ -123,6 +123,12 @@ export default function CreateCampaignModal({
             const permitUrl = await uploadToCloudinary(solicitationPermit);
 
             const finalName = isEmergency ? `(EMERGENCY) ${name}` : name;
+
+            const db = getDb();
+            if (!db) {
+                setStatusModal({ isOpen: true, type: "error", title: "Error", message: "Database not available. Please refresh the page." });
+                return;
+            }
 
             await addDoc(collection(db, "campaigns"), {
                 creator: account.address,
@@ -443,7 +449,7 @@ export default function CreateCampaignModal({
                                     <div>
                                         <div className="font-bold text-sm">I understand how I will receive the money.</div>
                                         <div className="text-xs text-slate-600">
-                                            I understand that fund disbursement will follow the platform’s approved process and timeline.
+                                            I understand that fund disbursement will follow the platform's approved process and timeline.
                                         </div>
                                     </div>
                                 </label>

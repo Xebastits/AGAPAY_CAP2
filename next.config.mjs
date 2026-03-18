@@ -29,10 +29,10 @@ const nextConfig = {
   // 4. Image Optimization
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'firebasestorage.googleapis.com' },
-      { protocol: 'https', hostname: 'ipfs.io' },
-      { protocol: 'https', hostname: 'd391b93f5f62d9c15f67142e43841da5.ipfscdn.io' },
-      { protocol: 'https', hostname: 'res.cloudinary.com' },
+      { protocol: 'https', hostname: 'firebasestorage.googleapis.com', pathname: "**" },
+      { protocol: 'https', hostname: 'ipfs.io', pathname: "**" },
+      { protocol: 'https', hostname: 'd391b93f5f62d9c15f67142e43841da5.ipfscdn.io', pathname: "**" },
+      { protocol: 'https', hostname: 'res.cloudinary.com', pathname: "**" },
     ],
     minimumCacheTTL: 60,
   },

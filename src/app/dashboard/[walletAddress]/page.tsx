@@ -11,7 +11,7 @@ import CreateCampaignModal from "../../components/CreateCampaignModal";
 
 
 // Imports for Data & Image
-import { db } from "@/app/lib/firebase";
+import { getDb } from "@/app/lib/firebase";
 import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
 import { uploadToCloudinary } from "../../lib/cloudinary";
 import { arcTestnet } from "thirdweb/chains";
@@ -59,9 +59,15 @@ export default function DashboardPage() {
         params: [account?.address || ""]
     });
 
-    const fetchPendingRequests = async () => {
+const fetchPendingRequests = async () => {
         if (!account) return;
         try {
+            const db = getDb();
+            if (!db) {
+                console.warn("Firestore not available");
+                return;
+            }
+            
             const q = query(collection(db, "campaigns"), where("creator", "==", account.address));
             const snapshot = await getDocs(q);
 

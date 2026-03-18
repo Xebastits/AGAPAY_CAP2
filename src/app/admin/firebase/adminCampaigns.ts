@@ -1,4 +1,4 @@
-import { db } from "@/app/lib/firebase";
+import { getDb } from "@/app/lib/firebase";
 import { collection, getDocs, query, where, doc, updateDoc } from "firebase/firestore";
 
 export interface Campaign {
@@ -16,6 +16,9 @@ export interface Campaign {
 }
 
 export const getPendingCampaigns = async (): Promise<Campaign[]> => {
+  const db = getDb();
+  if (!db) throw new Error("Firestore not available on server");
+  
   const q = query(collection(db, "campaigns"), where("status", "==", "pending"));
   const snapshot = await getDocs(q);
 
@@ -32,6 +35,9 @@ export const rejectCampaignById = async (
   reason: string,
   details: string
 ) => {
+  const db = getDb();
+  if (!db) throw new Error("Firestore not available");
+  
   await updateDoc(doc(db, "campaigns", campaignId), {
     status: "rejected",
     rejectionReason: reason,
@@ -44,6 +50,9 @@ export const approveCampaignById = async (
   campaignId: string,
   contractAddress: string
 ) => {
+  const db = getDb();
+  if (!db) throw new Error("Firestore not available");
+  
   await updateDoc(doc(db, "campaigns", campaignId), {
     status: "approved",
     campaignAddress: contractAddress,

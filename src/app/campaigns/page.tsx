@@ -8,6 +8,55 @@ import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import dynamic from 'next/dynamic';
 import { arcTestnet } from "thirdweb/chains";
 
+// import { TransakConfig, Transak } from "@transak/ui-js-sdk";
+
+// const transakConfig: TransakConfig = {
+//   widgetUrl:
+//     "https://global-stg.transak.com?apiKey=YOUR_API_KEY&sessionId=YOUR_SESSION_ID",
+// };
+
+// const transak = new Transak(transakConfig);
+
+// transak.init();
+
+// Transak.on(Transak.EVENTS.TRANSAK_WIDGET_INITIALISED, (data) => {
+//   console.log(data);
+// });
+
+// Transak.on(Transak.EVENTS.TRANSAK_ORDER_CREATED, (orderData) => {
+//   console.log(orderData);
+// });
+
+// Transak.on(Transak.EVENTS.TRANSAK_ORDER_SUCCESSFUL, (orderData) => {
+//   console.log(orderData);
+//   transak.close();
+// });
+
+// Transak.on(Transak.EVENTS.TRANSAK_WIDGET_CLOSE, () => {
+//   console.log("Widget closed");
+// });
+
+
+// /*
+// * This will trigger when the user has confirmed the order
+// * This doesn't guarantee that payment has completed in all scenarios
+// * If you want to close/navigate away, use the TRANSAK_ORDER_SUCCESSFUL event
+// */
+// Transak.on(Transak.EVENTS.TRANSAK_ORDER_CREATED, (orderData) => {
+//   console.log(orderData);
+// });
+
+// /*
+// * This will trigger when the user marks payment is made
+// * You can close/navigate away at this event
+// */
+// Transak.on(Transak.EVENTS.TRANSAK_ORDER_SUCCESSFUL, (orderData) => {
+//   console.log(orderData);
+//   transak.close();
+// });
+
+  //
+
 const MyCampaignCard = dynamic(
   () => import('../components/CampaignCard').then(mod => mod.MyCampaignCard),
   { loading: () => <div className="h-96 bg-slate-100 rounded-lg animate-pulse" />, ssr: false }

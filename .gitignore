@@ -2,6 +2,8 @@
 
 src/app/constants/
 src/app/lib/
+
+lib/
 # dependencies
 /node_modules
 /.pnp

@@ -7,7 +7,7 @@ import { getContract } from "thirdweb";
 import { useReadContract, useActiveAccount } from "thirdweb/react";
 import { prepareContractCall, sendTransaction } from "thirdweb";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { db } from "@/app/lib/firebase";
+import { getDb } from "@/app/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { arcTestnet } from "thirdweb/chains";
 
@@ -24,6 +24,8 @@ const formatDate = (timestamp?: bigint) =>
         month: 'short', day: 'numeric', year: 'numeric',
         hour: 'numeric', minute: 'numeric', hour12: true
     }) : "";
+
+    
 
 export const MyCampaignCard: React.FC<CampaignCardProps> = ({
     campaignAddress,
@@ -82,13 +84,22 @@ export const MyCampaignCard: React.FC<CampaignCardProps> = ({
     }, [balance, goal, state, owner, account?.address, campaignName, campaignDescription]);
 
     // Firebase image fetch
-    useEffect(() => {
-        if (!campaignName) return;
+useEffect(() => {
+    if (!campaignName) return;
 
-        getDocs(query(collection(db, "campaigns"), where("name", "==", campaignName)))
-            .then(snap => { if (!snap.empty) setFirebaseImage(snap.docs[0].data().imageUrl || ""); })
-            .catch(console.error);
-    }, [campaignName]);
+    const db = getDb();
+    if (!db) return;
+
+    getDocs(query(collection(db, "campaigns"), where("name", "==", campaignName)))
+        .then((snap) => {
+            if (!snap.empty) {
+                setFirebaseImage(snap.docs[0].data().imageUrl || "");
+            }
+        })
+        .catch(console.error);
+
+}, [campaignName]);
+    
 
     // Withdraw handler
     const handleWithdraw = useCallback(async () => {
