@@ -26,17 +26,17 @@ const wallets = [
 
 const testimonials = [
   {
-    quote: "Tinulungan kami ng Agapay na makapag-raise ng funds para sa mga biktima ng typhoon sa loob lang ng 48 hours. Bawat transaction ay transparent at madaling ma-verify online.",
-    role: "Relief Coordinator, Cebu",
+    quote: "Tinulungan kami ng Agapay na makapag raise ng funds para sa mga biktima ng typhoon sa loob lang ng 48 hours. Bawat transaction ay transparent at madaling ma verify online.",
+    role: "Relief Coordinator @ Cebu",
     image: photo1.src,
   },
   {
     quote: "Bilang donor, sa wakas naging confident na ako dahil alam ko kung saan talaga pumupunta ang pera ko through online. May peace of mind ako.",
-    role: "Regular Donor, Makati",
+    role: "Regular Donor @ Makati",
     image: photo2.src,
   },
   {
-    quote: "Ginamit ng barangay namin ang Agapay para mag-distribute ng aid pagkatapos ng landslide. Dahil sa smart contract, siguradong zero leakage.",
+    quote: "Ginamit ng barangay namin ang Agapay para mag distribute ng aid pagkatapos ng landslide. Dahil sa smart contract, siguradong zero leakage.",
     role: "Local Government Official",
     image: photo3.src,
   },

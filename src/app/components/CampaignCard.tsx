@@ -3,9 +3,8 @@
 import { client } from "@/app/client";
 import Link from "next/link";
 import Image from "next/image";
-import { getContract } from "thirdweb";
+import { getContract, prepareContractCall, sendTransaction } from "thirdweb";
 import { useReadContract, useActiveAccount } from "thirdweb/react";
-import { prepareContractCall, sendTransaction } from "thirdweb";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { getDb } from "@/app/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -14,24 +13,24 @@ import { arcTestnet } from "thirdweb/chains";
 type CampaignCardProps = {
     campaignAddress: string;
     showEmergencyFirst?: boolean;
-    creationTime?: bigint;
-    imageUrl?: string;
 };
 
-// Simple utility - kept outside to avoid recreation
-const formatDate = (timestamp?: bigint) =>
-    timestamp ? new Date(Number(timestamp) * 1000).toLocaleString('en-US', {
-        month: 'short', day: 'numeric', year: 'numeric',
-        hour: 'numeric', minute: 'numeric', hour12: true
-    }) : "";
-
-    
+// Utility to format blockchain timestamps (bigint seconds)
+const formatBlockchainDate = (timestamp?: bigint) =>
+    timestamp
+        ? new Date(Number(timestamp) * 1000).toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "numeric",
+              minute: "numeric",
+              hour12: true,
+          })
+        : "—";
 
 export const MyCampaignCard: React.FC<CampaignCardProps> = ({
     campaignAddress,
     showEmergencyFirst = false,
-    creationTime,
-    imageUrl,
 }) => {
     const account = useActiveAccount();
     const [firebaseImage, setFirebaseImage] = useState("");
@@ -44,62 +43,54 @@ export const MyCampaignCard: React.FC<CampaignCardProps> = ({
         shouldReload?: boolean;
     }>({ isOpen: false, type: 'success', title: '', message: '' });
 
+    const contract = useMemo(
+        () =>
+            getContract({
+                client,
+                chain: arcTestnet,
+                address: campaignAddress,
+            }),
+        [campaignAddress]
+    );
 
-    const contract = useMemo(() => getContract({
-        client,
-        chain: arcTestnet,
-        address: campaignAddress,
-    }), [campaignAddress]);
-
-
+    // Contract read hooks
     const { data: campaignName } = useReadContract({ contract, method: "function name() view returns (string)", params: [] });
     const { data: campaignDescription } = useReadContract({ contract, method: "function description() view returns (string)", params: [] });
     const { data: goal } = useReadContract({ contract, method: "function goal() view returns (uint256)", params: [] });
     const { data: balance, isLoading: isLoadingBalance } = useReadContract({ contract, method: "function getContractBalance() view returns (uint256)", params: [] });
     const { data: owner } = useReadContract({ contract, method: "function owner() view returns (address)", params: [] });
     const { data: state } = useReadContract({ contract, method: "function state() view returns (uint8)", params: [] });
+    const { data: creationTime } = useReadContract({ contract, method: "function creationTime() view returns (uint256)", params: [] });
     const { data: deadline } = useReadContract({ contract, method: "function deadline() view returns (uint256)", params: [] });
 
-    // Computed values
+    // Firebase image fetch (optional)
+    useEffect(() => {
+        if (!campaignName) return;
+
+        const db = getDb();
+        if (!db) return;
+
+        getDocs(query(collection(db, "campaigns"), where("name", "==", campaignName)))
+            .then((snap) => {
+                if (!snap.empty) {
+                    setFirebaseImage(snap.docs[0].data().imageUrl || "");
+                }
+            })
+            .catch(console.error);
+    }, [campaignName]);
+
+    // Computed stats
     const stats = useMemo(() => {
         const displayBalance = balance?.toString() ?? "0";
         const displayGoal = goal?.toString() ?? "0";
         const percentage = goal && balance ? (Number(balance) / Number(goal)) * 100 : 0;
         const isSuccessful =
             state === 1 ||
-            (state === 0 &&
-                typeof balance === "bigint" &&
-                typeof goal === "bigint" &&
-                balance >= goal);
-
-        const canWithdraw =
-            owner === account?.address &&
-            isSuccessful &&
-            balance &&
-            balance > 0n;
-
+            (state === 0 && typeof balance === "bigint" && typeof goal === "bigint" && balance >= goal);
+        const canWithdraw = owner === account?.address && isSuccessful && balance && balance > 0n;
         const isEmergency = `${campaignName} ${campaignDescription}`.toLowerCase().includes('emergency');
-
         return { displayBalance, displayGoal, percentage, isSuccessful, canWithdraw, isEmergency };
     }, [balance, goal, state, owner, account?.address, campaignName, campaignDescription]);
-
-    // Firebase image fetch
-useEffect(() => {
-    if (!campaignName) return;
-
-    const db = getDb();
-    if (!db) return;
-
-    getDocs(query(collection(db, "campaigns"), where("name", "==", campaignName)))
-        .then((snap) => {
-            if (!snap.empty) {
-                setFirebaseImage(snap.docs[0].data().imageUrl || "");
-            }
-        })
-        .catch(console.error);
-
-}, [campaignName]);
-    
 
     // Withdraw handler
     const handleWithdraw = useCallback(async () => {
@@ -109,7 +100,7 @@ useEffect(() => {
         try {
             await sendTransaction({
                 transaction: prepareContractCall({ contract, method: "function withdraw()", params: [] }),
-                account
+                account,
             });
             setStatusModal({ isOpen: true, type: 'success', title: 'Withdrawal Successful!', message: 'Funds transferred.', shouldReload: true });
         } catch (e: any) {
@@ -126,7 +117,7 @@ useEffect(() => {
         setStatusModal(m => ({ ...m, isOpen: false }));
     };
 
-    const finalImageUrl = imageUrl || firebaseImage;
+    const finalImageUrl = firebaseImage;
 
     return (
         <>
@@ -152,15 +143,16 @@ useEffect(() => {
 
                 <div className="p-5 flex-1 flex flex-col">
                     <h5 className="mb-2 text-xl font-bold text-slate-900 line-clamp-1">{campaignName || "Loading..."}</h5>
-                    <p className="text-sm text-slate-600 line-clamp-3">
-                        {campaignDescription}
-                    </p>
+                    <p className="text-sm text-slate-600 line-clamp-3">{campaignDescription}</p>
+
                     <div className="my-1 h-px w-full bg-slate-200" />
-                    {/* Dates */}
+
+                    {/* Blockchain Dates */}
                     <div className="mb-2 text-xs font-medium">
-                        {creationTime && <p className="text-slate-400">Created: {formatDate(creationTime)}</p>}
-                        {deadline && <p className="text-red-400">Deadline: {formatDate(deadline)}</p>}
+                        {creationTime && <p className="text-slate-400">Created: {formatBlockchainDate(creationTime)}</p>}
+                        {deadline && <p className="text-red-400">Deadline: {formatBlockchainDate(deadline)}</p>}
                     </div>
+
                     {/* Progress / Success */}
                     {!isLoadingBalance && (
                         stats.isSuccessful ? (
@@ -181,7 +173,6 @@ useEffect(() => {
                         )
                     )}
 
-
                     <Link href={`/campaign/${campaignAddress}`} className="mt-auto">
                         <button className="w-full px-4 py-2.5 text-sm font-bold text-white bg-blue-700 rounded-lg hover:bg-slate-600 transition-colors">View Details</button>
                     </Link>
@@ -194,7 +185,7 @@ useEffect(() => {
                 </div>
             </div>
 
-            {/* Modal */}
+            {/* Status Modal */}
             {statusModal.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-lg shadow-2xl p-6 max-w-sm w-full">
