@@ -147,7 +147,7 @@ export default function Home() {
                   fontSize: "52px", lineHeight: 1, color: "#60a5fa",
                   fontFamily: "Georgia, serif", marginBottom: "6px",
                 }}>
-                  "
+                  
                 </div>
                 <p style={{
                   color: "#f1f5f9", fontSize: "16px", lineHeight: 1.8,
