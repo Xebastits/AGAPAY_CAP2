@@ -57,8 +57,9 @@ export default function DashboardPage() {
         params: [account?.address || ""]
     });
 
+    // FIX: depend on account?.address (stable string) instead of account (new object ref each render)
     const fetchPendingRequests = useCallback(async () => {
-        if (!account) return;
+        if (!account?.address) return;
         setIsFetchingRequests(true);
         try {
             const db = getDb();
@@ -90,12 +91,12 @@ export default function DashboardPage() {
         } finally {
             setIsFetchingRequests(false);
         }
-    }, [account]);
+    }, [account?.address]); // FIX: stable primitive dep
 
-    // Only depend on account — not fetchPendingRequests — to avoid the refetch loop
+    // FIX: include fetchPendingRequests in deps now that it's stable
     useEffect(() => {
-        if (account) fetchPendingRequests();
-    }, [account]); // eslint-disable-line react-hooks/exhaustive-deps
+        if (account?.address) fetchPendingRequests();
+    }, [account?.address, fetchPendingRequests]);
 
     // --- PAGINATION LOGIC ---
     const visiblePending = useMemo(() => {
