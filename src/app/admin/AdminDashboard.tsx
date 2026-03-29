@@ -233,7 +233,7 @@ export const AdminDashboard = () => {
                     {/* Add min-w-0 to allow the child to shrink */}
                     <div className="min-w-0">
                         <h1 className="text-3xl font-bold text-slate-800">Admin Dashboard</h1>
-                        <p className="text-slate-500">Manage requests...</p>
+                        <p className="text-slate-500">Manage pending requests and check approved campaigns online.</p>
                     </div>
                     {/* Add min-w-0 and shrink-0 to control the width */}
                     <div className="text-right max-w-[50%] min-w-0 flex-shrink-0">

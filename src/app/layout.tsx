@@ -3,14 +3,13 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThirdwebProvider } from "thirdweb/react";
 import Navbar from "./components/Navbar";
-import NDAWrapper from "./components/NDAWrapper";
 import { NetworkProvider } from "./constants/network";
 import AuthGuard from "./components/AuthGuard";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Agapay",
+  title: "AgaPay",
   description:
     "A BLOCKCHAIN ENABLED WEB APPLICATION CROWDFUNDING PLATFORM FOR SOCIAL WELFARE ASSISTANCE",
   icons: {

@@ -9,11 +9,8 @@ import { getContract } from "thirdweb";
 import { useActiveAccount, useReadContract } from "thirdweb/react";
 import CreateCampaignModal from "../../components/CreateCampaignModal";
 
-
-// Imports for Data & Image
 import { getDb } from "@/app/lib/firebase";
-import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
-import { uploadToCloudinary } from "../../lib/cloudinary";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { arcTestnet } from "thirdweb/chains";
 
 type CampaignRequest = {
@@ -42,6 +39,7 @@ export default function DashboardPage() {
 
     // Data State
     const [pendingRequests, setPendingRequests] = useState<CampaignRequest[]>([]);
+    const [isFetchingRequests, setIsFetchingRequests] = useState(false);
 
     // Pagination State
     const [pendingPage, setPendingPage] = useState(1);
@@ -61,6 +59,7 @@ export default function DashboardPage() {
 
     const fetchPendingRequests = useCallback(async () => {
         if (!account) return;
+        setIsFetchingRequests(true);
         try {
             const db = getDb();
             if (!db) {
@@ -84,21 +83,19 @@ export default function DashboardPage() {
                 } as CampaignRequest;
             });
 
-            reqs.sort((a, b) => {
-                const dateA = a.createdAt || 0;
-                const dateB = b.createdAt || 0;
-                return dateB - dateA;
-            });
-
+            reqs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             setPendingRequests(reqs);
         } catch (error) {
             console.error("Error fetching requests:", error);
+        } finally {
+            setIsFetchingRequests(false);
         }
     }, [account]);
 
+    // Only depend on account — not fetchPendingRequests — to avoid the refetch loop
     useEffect(() => {
         if (account) fetchPendingRequests();
-    }, [account, fetchPendingRequests]);
+    }, [account]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- PAGINATION LOGIC ---
     const visiblePending = useMemo(() => {
@@ -138,7 +135,11 @@ export default function DashboardPage() {
             <div className="mb-12 bg-slate-50 border border-slate-200 rounded-lg p-6 h-[36rem] flex flex-col">
                 <h3 className="text-2xl font-bold text-slate-700 mb-4 flex-none">Your Requests Status</h3>
 
-                {pendingRequests.length === 0 ? (
+                {isFetchingRequests ? (
+                    <div className="flex-1 flex items-center justify-center">
+                        <p className="text-slate-400 italic">Loading requests...</p>
+                    </div>
+                ) : pendingRequests.length === 0 ? (
                     <div className="flex-1 flex items-center justify-center">
                         <p className="text-slate-400 italic">No pending requests found.</p>
                     </div>
@@ -157,7 +158,6 @@ export default function DashboardPage() {
                                             }
                                         }}
                                     >
-
                                         {req.isEmergency && (
                                             <div className="absolute top-0 left-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-br">
                                                 EMERGENCY
@@ -240,7 +240,6 @@ export default function DashboardPage() {
                 )}
             </div>
 
-
             {/* ACTIVE SECTION */}
             <div className="flex flex-row justify-between items-center mb-4 border-t pt-8">
                 <p className="text-2xl font-semibold">My Campaigns:</p>
@@ -315,7 +314,6 @@ export default function DashboardPage() {
                     openCreateModal={() => setIsModalOpen(true)}
                 />
             )}
-
         </div>
     );
 }
