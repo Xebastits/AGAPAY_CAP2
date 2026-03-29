@@ -133,7 +133,6 @@ const CampaignCard = memo(({
   <MyCampaignCard
     campaignAddress={campaignAddress}
     showEmergencyFirst={showEmergencyFirst}
-    creationTime={creationTime}
   />
 ));
 CampaignCard.displayName = 'CampaignCard';
