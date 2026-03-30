@@ -4,13 +4,16 @@ import { client } from "@/app/client";
 import { CROWDFUNDING_FACTORY } from "@/app/constants/constant";
 import { MyCampaignCard } from "../../components/CampaignCard";
 import RejectionGuidanceModal from "../../components/RejectionGuidanceModal";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getContract } from "thirdweb";
 import { useActiveAccount, useReadContract } from "thirdweb/react";
 import CreateCampaignModal from "../../components/CreateCampaignModal";
 
+
+// Imports for Data & Image
 import { getDb } from "@/app/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
+import { uploadToCloudinary } from "../../lib/cloudinary";
 import { arcTestnet } from "thirdweb/chains";
 
 type CampaignRequest = {
@@ -20,7 +23,7 @@ type CampaignRequest = {
     description: string;
     status: string;
     rejectionReason?: string;
-    rejectionDetails?: string;
+    rejectionDetails?: string;   // <-- add this
     isEmergency?: boolean;
     createdAt?: number;
 };
@@ -39,7 +42,6 @@ export default function DashboardPage() {
 
     // Data State
     const [pendingRequests, setPendingRequests] = useState<CampaignRequest[]>([]);
-    const [isFetchingRequests, setIsFetchingRequests] = useState(false);
 
     // Pagination State
     const [pendingPage, setPendingPage] = useState(1);
@@ -57,22 +59,21 @@ export default function DashboardPage() {
         params: [account?.address || ""]
     });
 
-    // FIX: depend on account?.address (stable string) instead of account (new object ref each render)
-    const fetchPendingRequests = useCallback(async () => {
-        if (!account?.address) return;
-        setIsFetchingRequests(true);
+const fetchPendingRequests = async () => {
+        if (!account) return;
         try {
             const db = getDb();
             if (!db) {
                 console.warn("Firestore not available");
                 return;
             }
-
+            
             const q = query(collection(db, "campaigns"), where("creator", "==", account.address));
             const snapshot = await getDocs(q);
 
             const reqs = snapshot.docs.map(doc => {
                 const data = doc.data();
+                // Safety: Convert Firestore Timestamp to number if necessary
                 const createdAt = data.createdAt?.seconds
                     ? data.createdAt.seconds * 1000
                     : data.createdAt;
@@ -84,19 +85,22 @@ export default function DashboardPage() {
                 } as CampaignRequest;
             });
 
-            reqs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            // SORTING LOGIC: Newest (largest number) to Oldest (smallest number)
+            reqs.sort((a, b) => {
+                const dateA = a.createdAt || 0;
+                const dateB = b.createdAt || 0;
+                return dateB - dateA;
+            });
+
             setPendingRequests(reqs);
         } catch (error) {
             console.error("Error fetching requests:", error);
-        } finally {
-            setIsFetchingRequests(false);
         }
-    }, [account?.address]); // FIX: stable primitive dep
+    };
 
-    // FIX: include fetchPendingRequests in deps now that it's stable
     useEffect(() => {
-        if (account?.address) fetchPendingRequests();
-    }, [account?.address, fetchPendingRequests]);
+        if (account) fetchPendingRequests();
+    }, [account]);
 
     // --- PAGINATION LOGIC ---
     const visiblePending = useMemo(() => {
@@ -133,19 +137,17 @@ export default function DashboardPage() {
             </div>
 
             {/* PENDING SECTION */}
+            {/* 1. FIXED HEIGHT CONTAINER: h-[44rem] ensures the box never changes size */}
             <div className="mb-12 bg-slate-50 border border-slate-200 rounded-lg p-6 h-[36rem] flex flex-col">
                 <h3 className="text-2xl font-bold text-slate-700 mb-4 flex-none">Your Requests Status</h3>
 
-                {isFetchingRequests ? (
-                    <div className="flex-1 flex items-center justify-center">
-                        <p className="text-slate-400 italic">Loading requests...</p>
-                    </div>
-                ) : pendingRequests.length === 0 ? (
+                {pendingRequests.length === 0 ? (
                     <div className="flex-1 flex items-center justify-center">
                         <p className="text-slate-400 italic">No pending requests found.</p>
                     </div>
                 ) : (
                     <>
+                        {/* Content Area - Takes up available space */}
                         <div className="flex-1">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {visiblePending.map((req) => (
@@ -159,6 +161,7 @@ export default function DashboardPage() {
                                             }
                                         }}
                                     >
+
                                         {req.isEmergency && (
                                             <div className="absolute top-0 left-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-br">
                                                 EMERGENCY
@@ -206,6 +209,8 @@ export default function DashboardPage() {
                                             </p>
                                         </div>
 
+
+
                                         {req.status === "rejected" && (
                                             <div className="text-xs text-red-600 bg-red-50 p-1.5 rounded mt-auto text-center font-bold">
                                                 View reason
@@ -216,6 +221,7 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
+                        {/* 3. PAGINATION: Pinned to bottom using flex-none and margin-top-auto logic */}
                         <div className="flex-none pt-4 border-t border-slate-200 mt-4 h-16 flex items-center justify-center">
                             {totalPendingPages > 1 && (
                                 <div className="flex justify-center items-center gap-4 w-64 mx-auto">
@@ -240,6 +246,7 @@ export default function DashboardPage() {
                     </>
                 )}
             </div>
+
 
             {/* ACTIVE SECTION */}
             <div className="flex flex-row justify-between items-center mb-4 border-t pt-8">
@@ -315,6 +322,7 @@ export default function DashboardPage() {
                     openCreateModal={() => setIsModalOpen(true)}
                 />
             )}
+
         </div>
     );
 }
