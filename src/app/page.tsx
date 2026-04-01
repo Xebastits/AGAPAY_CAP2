@@ -18,8 +18,10 @@ import photo3 from './assets/testimonial3.jpg';
 
 const wallets = [
   inAppWallet({
-    auth: {
-      options: ["google"],
+    auth: { options: ["google"] },
+    smartAccount: {
+      chain: arcTestnet,
+      sponsorGas: true,
     },
   }),
 ];

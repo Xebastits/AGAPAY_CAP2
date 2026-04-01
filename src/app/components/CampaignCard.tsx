@@ -4,7 +4,7 @@ import { client } from "@/app/client";
 import Link from "next/link";
 import Image from "next/image";
 import { getContract, prepareContractCall, sendTransaction } from "thirdweb";
-import { useReadContract, useActiveAccount } from "thirdweb/react";
+import { useReadContract, useActiveAccount, useSendTransaction } from "thirdweb/react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { getDb } from "@/app/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -93,24 +93,38 @@ export const MyCampaignCard: React.FC<CampaignCardProps> = ({
     }, [balance, goal, state, owner, account?.address, campaignName, campaignDescription]);
 
     // Withdraw handler
-    const handleWithdraw = useCallback(async () => {
-        if (!account) return;
-        setIsWithdrawing(true);
+const handleWithdraw = useCallback(async () => {
+    if (!account) return;
+    setIsWithdrawing(true);
 
-        try {
-            await sendTransaction({
-                transaction: prepareContractCall({ contract, method: "function withdraw()", params: [] }),
-                account,
-            });
-            setStatusModal({ isOpen: true, type: 'success', title: 'Withdrawal Successful!', message: 'Funds transferred.', shouldReload: true });
-        } catch (e: any) {
-            if (!e?.message?.includes("rejected")) {
-                setStatusModal({ isOpen: true, type: 'error', title: 'Withdrawal Failed', message: 'Please try again.', shouldReload: false });
-            }
-        } finally {
-            setIsWithdrawing(false);
-        }
-    }, [account, contract]);
+    try {
+        await sendTransaction({
+            transaction: prepareContractCall({
+                contract,
+                method: "function withdraw()",
+                params: [],
+            }),
+            account, // ✅ already a smart account with sponsored gas from ConnectButton
+        });
+
+        setStatusModal({
+            isOpen: true, type: 'success',
+            title: 'Withdrawal Successful!',
+            message: 'Funds transferred.',
+            shouldReload: true,
+        });
+    } catch (error) {
+        console.error('Withdrawal error:', error);
+        setStatusModal({
+            isOpen: true, type: 'error',
+            title: 'Withdrawal Failed',
+            message: error instanceof Error ? error.message : 'An unknown error occurred',
+            shouldReload: false,
+        });
+    } finally {
+        setIsWithdrawing(false);
+    }
+}, [account, contract]);
 
     const closeModal = () => {
         if (statusModal.shouldReload) window.location.reload();
@@ -179,7 +193,7 @@ export const MyCampaignCard: React.FC<CampaignCardProps> = ({
 
                     {stats.canWithdraw && (
                         <button onClick={handleWithdraw} disabled={isWithdrawing} className={`mt-3 w-full px-4 py-2.5 text-sm font-bold text-white rounded-lg ${isWithdrawing ? "bg-green-400" : "bg-green-600 hover:bg-green-700"}`}>
-                            {isWithdrawing ? "Processing..." : "⚡ Withdraw Funds"}
+                            {isWithdrawing ? "Processing..." : "Withdraw Funds"}
                         </button>
                     )}
                 </div>

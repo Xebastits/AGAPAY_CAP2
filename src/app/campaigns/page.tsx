@@ -188,7 +188,7 @@ function HowItWorks() {
           </div>
           <FlowStep num="1" color="blue"  label="Browse campaigns"     desc="Find a cause you care about — medical, disaster, emergency" />
           <StepArrow />
-          <FlowStep num="2" color="blue"  label="Send your donation"   desc="Donate using USDC directly to the campaign's smart contract" />
+          <FlowStep num="2" color="blue"  label="Send your donation"   desc="Donate using money from GCASH (Trade pesos to USDC) directly to the campaign." />
           <StepArrow />
           <FlowStep num="✓" color="teal"  label="Blockchain records it" desc="Your donation is permanently recorded — no one can alter it" />
           <StepArrow />
