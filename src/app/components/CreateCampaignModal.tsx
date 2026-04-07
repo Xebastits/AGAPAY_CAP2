@@ -209,32 +209,32 @@ export default function CreateCampaignModal({
                         </div>
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="col-span-2">
-                                    <label className="block text-sm font-bold mb-1">Full Legal Name</label>
+                                    <label className="block text-sm font-bold mb-1"> <span className="text-red-600">*</span> Full Legal Name</label>
                                     <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="John Doe" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold mb-1">Age (18+)</label>
+                                    <label className="block text-sm font-bold mb-1"><span className="text-red-600">*</span> Age (18+)</label>
                                     <input type="number" value={age} onChange={(e) => handleIntegerChange(e, setAge)} onBlur={() => handleBlur(age, setAge, 18, 150)} onKeyDown={preventNonIntegers} className="w-full px-3 py-2 border rounded" placeholder="18" />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold mb-1">Campaign Title</label>
+                                <label className="block text-sm font-bold mb-1"><span className="text-red-600">*</span> Campaign Title</label>
                                 <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="e.g. Medical Help for Juan" />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold mb-1">Description</label>
+                                <label className="block text-sm font-bold mb-1"><span className="text-red-600">*</span> Description</label>
                                 <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-3 py-2 border rounded min-h-[50px] max-h-[220px] overflow-y-auto" placeholder="Add further context and reasons..." />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold mb-1">Goal (PHP)</label>
+                                    <label className="block text-sm font-bold mb-1"><span className="text-red-600">*</span> Goal (PHP)</label>
                                     <input type="number" value={goal} onChange={(e) => handleIntegerChange(e, setGoal)} onBlur={() => handleBlur(goal, setGoal, 1)} onKeyDown={preventNonIntegers} className="w-full px-3 py-2 border rounded" placeholder="1000" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold mb-1">Duration (Days)</label>
+                                    <label className="block text-sm font-bold mb-1"><span className="text-red-600">*</span> Duration (Days)</label>
                                     <input type="number" value={deadline} onChange={(e) => handleIntegerChange(e, setDeadline)} onBlur={() => handleBlur(deadline, setDeadline, 1)} onKeyDown={preventNonIntegers} className="w-full px-3 py-2 border rounded" placeholder="30" />
                                 </div>
                             </div>
@@ -287,7 +287,7 @@ export default function CreateCampaignModal({
                             {/* 1. Campaign Image */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-800 mb-2">
-                                    1. Campaign Cover Image
+                                    <span className="text-red-600">*</span> 1. Campaign Cover Image 
                                 </label>
                                 <p className="text-xs text-slate-600 mb-2 italic">
                                     Add a clear cover photo that represents your campaign. This will be displayed on the campaign page.
@@ -303,7 +303,7 @@ export default function CreateCampaignModal({
                             {/* 2. ID Image */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-800 mb-2">
-                                    2. ID Verification
+                                    <span className="text-red-600">*</span> 2. ID Verification
                                 </label>
                                 <p className="text-xs text-slate-600 mb-2 italic">
                                     Upload a clear photo of valid National ID for verification.
@@ -320,7 +320,7 @@ export default function CreateCampaignModal({
                             {/* 3. Requirement Image */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-800 mb-1">
-                                    3. Proof of Need (Requirements)
+                                    <span className="text-red-600">*</span> 3. Proof of Need (Requirements)
                                 </label>
                                 <p className="text-xs text-slate-600 mb-2 italic">
                                     Upload medical bill, prescription, hospital certificate, etc.
@@ -336,7 +336,7 @@ export default function CreateCampaignModal({
                             {/* 4. Barangay Certificate */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-800 mb-1">
-                                    4. Barangay Certificate of Indigency
+                                    <span className="text-red-600">*</span> 4. Barangay Certificate of Indigency
                                 </label>
                                 <p className="text-xs text-slate-600 mb-2 italic">
                                     Proof that you are eligible for assistance (issued by your barangay).
@@ -352,7 +352,7 @@ export default function CreateCampaignModal({
                             {/* 5. Public Solicitation Permit */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-800 mb-1">
-                                    5. Public Solicitation Permit
+                                    <span className="text-red-600">*</span> 5. Public Solicitation Permit
                                 </label>
                                 <p className="text-xs text-slate-600 mb-2 italic">
                                     Permit needed to legally fundraise publicly according to PD No. 1564.
@@ -411,7 +411,7 @@ export default function CreateCampaignModal({
                                         className="w-4 h-4 mt-1"
                                     />
                                     <div>
-                                        <div className="font-bold text-sm">I promise my documents are real.</div>
+                                        <div className="font-bold text-sm"><span className="text-red-600">*</span> I promise my documents are real.</div>
                                         <div className="text-xs text-slate-600">
                                             I understand that falsified documents may lead to rejection of my request.
                                         </div>
@@ -429,7 +429,7 @@ export default function CreateCampaignModal({
                                         className="w-4 h-4 mt-1"
                                     />
                                     <div>
-                                        <div className="font-bold text-sm">I allow DSWD to check my background.</div>
+                                        <div className="font-bold text-sm"><span className="text-red-600">*</span> I allow the Admin and validators to check my background.</div>
                                         <div className="text-xs text-slate-600">
                                             Validators may review my documents to confirm authenticity and prevent misuse.
                                         </div>
@@ -447,7 +447,7 @@ export default function CreateCampaignModal({
                                         className="w-4 h-4 mt-1"
                                     />
                                     <div>
-                                        <div className="font-bold text-sm">I understand how I will receive the money.</div>
+                                        <div className="font-bold text-sm"><span className="text-red-600">*</span> I understand how I will receive the money.</div>
                                         <div className="text-xs text-slate-600">
                                            I understand that fund disbursement will follow the platform&apos;s approved process and timeline.
                                         </div>

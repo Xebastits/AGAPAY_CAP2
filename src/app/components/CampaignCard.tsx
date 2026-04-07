@@ -104,7 +104,7 @@ const handleWithdraw = useCallback(async () => {
                 method: "function withdraw()",
                 params: [],
             }),
-            account, // ✅ already a smart account with sponsored gas from ConnectButton
+            account, 
         });
 
         setStatusModal({
