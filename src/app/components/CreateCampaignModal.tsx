@@ -11,6 +11,24 @@ type CreateCampaignModalProps = {
     refreshRequests: () => void;
 };
 
+// --- NEW: Reusable image preview component ---
+function ImagePreview({ file }: { file: File | null }) {
+    if (!file) return null;
+    const url = URL.createObjectURL(file);
+    return (
+        <div className="mt-2 flex items-center gap-3 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+            <img
+                src={url}
+                alt="preview"
+                className="w-12 h-12 object-cover rounded border border-slate-300 flex-shrink-0"
+            />
+            <span className="text-xs text-slate-600 truncate max-w-[200px]" title={file.name}>
+                {file.name}
+            </span>
+        </div>
+    );
+}
+
 export default function CreateCampaignModal({
     setIsModalOpen,
     refreshRequests
@@ -298,6 +316,7 @@ export default function CreateCampaignModal({
                                     onChange={(e) => setCampaignImage(e.target.files?.[0] || null)}
                                     className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
                                 />
+                                <ImagePreview file={campaignImage} />
                             </div>
 
                             {/* 2. ID Image */}
@@ -315,6 +334,7 @@ export default function CreateCampaignModal({
                                     onChange={(e) => setIdImage(e.target.files?.[0] || null)}
                                     className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
                                 />
+                                <ImagePreview file={idImage} />
                             </div>
 
                             {/* 3. Requirement Image */}
@@ -331,6 +351,7 @@ export default function CreateCampaignModal({
                                     onChange={(e) => setRequirementImage(e.target.files?.[0] || null)}
                                     className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
                                 />
+                                <ImagePreview file={requirementImage} />
                             </div>
 
                             {/* 4. Barangay Certificate */}
@@ -347,6 +368,7 @@ export default function CreateCampaignModal({
                                     onChange={(e) => setBarangayCertificate(e.target.files?.[0] || null)}
                                     className={fileInputClass}
                                 />
+                                <ImagePreview file={barangayCertificate} />
                             </div>
 
                             {/* 5. Public Solicitation Permit */}
@@ -363,6 +385,7 @@ export default function CreateCampaignModal({
                                     onChange={(e) => setSolicitationPermit(e.target.files?.[0] || null)}
                                     className={fileInputClass}
                                 />
+                                <ImagePreview file={solicitationPermit} />
                             </div>
 
                             <div className="flex gap-4 pt-4 mt-4 border-t justify-between">

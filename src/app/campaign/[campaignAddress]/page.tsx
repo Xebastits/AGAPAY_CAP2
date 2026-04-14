@@ -137,6 +137,13 @@ export default function CampaignPage() {
         params: []
     });
 
+    // ── ADD: read on-chain state ──
+    const { data: state } = useReadContract({
+        contract,
+        method: "function state() view returns (uint8)",
+        params: []
+    });
+
     useEffect(() => {
         if (!name) return;
         const db = getDb();
@@ -153,6 +160,12 @@ export default function CampaignPage() {
             })
             .catch(console.error);
     }, [name]);
+
+    // ── ADD: compute failed status ──
+    const now = Date.now() / 1000;
+    const isExpired = deadline ? now >= Number(deadline) : false;
+    const isGoalMet = typeof balance === "bigint" && typeof goal === "bigint" && balance >= goal;
+    const isFailed = state === 2 || (state === 0 && isExpired && !isGoalMet);
 
     const handleDonate = async () => {
         if (!account) return showModal("warning", "Wallet Not Connected", "Please connect your wallet first before donating.");
@@ -287,27 +300,34 @@ export default function CampaignPage() {
                                 </div>
                             </div>
 
-                            {/* DONATE */}
-                            <div className="bg-white p-6 rounded-xl shadow-md border">
-                                <h3 className="text-lg font-bold mb-4">Donate</h3>
-                                <input
-                                    type="number"
-                                    value={donationAmount}
-                                    onChange={(e) => setDonationAmount(e.target.value)}
-                                    placeholder="Enter amount"
-                                    disabled={isProcessing}
-                                    className="w-full p-3 border rounded-lg text-lg mb-4"
-                                />
-                                <button
-                                    onClick={handleDonate}
-                                    disabled={isProcessing}
-                                    className={`w-full py-3 rounded-lg text-white font-bold transition ${
-                                        isProcessing ? "bg-slate-400" : "bg-blue-600 hover:bg-blue-700"
-                                    }`}
-                                >
-                                    {isProcessing ? "Processing..." : "Donate Funds"}
-                                </button>
-                            </div>
+                            {/* DONATE — hidden when campaign is failed */}
+                            {isFailed ? (
+                                <div className="bg-red-50 border border-red-200 p-6 rounded-xl shadow-md text-center">
+                                    <p className="text-red-600 font-bold text-m">This campaign has ended</p>
+                                    <p className="text-red-400 text-xs mt-1">Donations are no longer accepted</p>
+                                </div>
+                            ) : (
+                                <div className="bg-white p-6 rounded-xl shadow-md border">
+                                    <h3 className="text-lg font-bold mb-4">Donate</h3>
+                                    <input
+                                        type="number"
+                                        value={donationAmount}
+                                        onChange={(e) => setDonationAmount(e.target.value)}
+                                        placeholder="Enter amount"
+                                        disabled={isProcessing}
+                                        className="w-full p-3 border rounded-lg text-lg mb-4"
+                                    />
+                                    <button
+                                        onClick={handleDonate}
+                                        disabled={isProcessing}
+                                        className={`w-full py-3 rounded-lg text-white font-bold transition ${
+                                            isProcessing ? "bg-slate-400" : "bg-blue-600 hover:bg-blue-700"
+                                        }`}
+                                    >
+                                        {isProcessing ? "Processing..." : "Donate Funds"}
+                                    </button>
+                                </div>
+                            )}
 
                         </div>
                     </div>

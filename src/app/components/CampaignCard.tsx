@@ -80,17 +80,25 @@ export const MyCampaignCard: React.FC<CampaignCardProps> = ({
     }, [campaignName]);
 
     // Computed stats
-    const stats = useMemo(() => {
-        const displayBalance = balance?.toString() ?? "0";
-        const displayGoal = goal?.toString() ?? "0";
-        const percentage = goal && balance ? (Number(balance) / Number(goal)) * 100 : 0;
-        const isSuccessful =
-            state === 1 ||
-            (state === 0 && typeof balance === "bigint" && typeof goal === "bigint" && balance >= goal);
-        const canWithdraw = owner === account?.address && isSuccessful && balance && balance > 0n;
-        const isEmergency = `${campaignName} ${campaignDescription}`.toLowerCase().includes('emergency');
-        return { displayBalance, displayGoal, percentage, isSuccessful, canWithdraw, isEmergency };
-    }, [balance, goal, state, owner, account?.address, campaignName, campaignDescription]);
+// ADD deadline to the existing reads at the top (it's already there)
+
+const stats = useMemo(() => {
+    const displayBalance = balance?.toString() ?? "0";
+    const displayGoal = goal?.toString() ?? "0";
+    const percentage = goal && balance ? (Number(balance) / Number(goal)) * 100 : 0;
+
+    const now = Date.now() / 1000;
+    const isExpired = deadline ? now >= Number(deadline) : false;
+    const isGoalMet = typeof balance === "bigint" && typeof goal === "bigint" && balance >= goal;
+
+    const isSuccessful = state === 1 || (state === 0 && isGoalMet);
+    const isFailed = state === 2 || (state === 0 && isExpired && !isGoalMet); // <-- ADD
+
+    const canWithdraw = owner === account?.address && isSuccessful && !isFailed && balance && balance > 0n; // <-- ADD !isFailed
+
+    const isEmergency = `${campaignName} ${campaignDescription}`.toLowerCase().includes('emergency');
+    return { displayBalance, displayGoal, percentage, isSuccessful, isFailed, canWithdraw, isEmergency };
+}, [balance, goal, state, deadline, owner, account?.address, campaignName, campaignDescription]);
 
     // Withdraw handler
 const handleWithdraw = useCallback(async () => {
