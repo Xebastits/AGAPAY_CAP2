@@ -319,7 +319,7 @@ export const AdminDashboard = () => {
 
                                                     <p className="text-m text-slate-800 mt-2"><strong>Description:</strong></p>
 
-                                                    {/* ✅ Replaced old static description with collapsible one */}
+                                        
                                                     <CollapsibleDescription text={campaign.description} />
 
                                                     <div className="flex flex-wrap gap-2 text-sm font-medium text-slate-700">
