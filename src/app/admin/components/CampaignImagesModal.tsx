@@ -1,16 +1,15 @@
 "use client";
 
-import Image from "next/image";
+import { DocumentImageGallery } from "./DocumentImageGallery";
 
 interface CampaignImagesModalProps {
   open: boolean;
   onClose: () => void;
   images: {
-    campaignImage?: string;
-    idImage?: string;
-    requirementImage?: string;
-    barangayCertificate?: string;
-    solicitationPermit?: string;
+    idImages?: string[];
+    requirementImages?: string[];
+    barangayCertificates?: string[];
+    solicitationPermits?: string[];
   } | null;
 }
 
@@ -30,7 +29,7 @@ export const CampaignImagesModal = ({
               Verification Documents
             </h3>
             <p className="text-sm text-slate-500">
-              Review submitted documents to verify the legitimacy of this campaign.
+              Review submitted documents to verify the legitimacy of this campaign. Click any thumbnail to view it full size.
             </p>
           </div>
           <button
@@ -43,62 +42,22 @@ export const CampaignImagesModal = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-          {images?.idImage && (
-            <ImageCard title="Govt. ID Image" src={images.idImage} />
-          )}
+          <DocumentImageGallery title="Govt. ID" files={images?.idImages || []} />
+          <DocumentImageGallery title="Requirement / Proof of Need" files={images?.requirementImages || []} />
+          <DocumentImageGallery title="Barangay Certificate of Indigency" files={images?.barangayCertificates || []} />
+          <DocumentImageGallery title="Public Solicitation Permit" files={images?.solicitationPermits || []} />
 
-          {images?.requirementImage && (
-            <ImageCard title="Requirement / Medical Image" src={images.requirementImage} />
-          )}
-
-          {images?.barangayCertificate && (
-            <ImageCard title="Barangay Certificate" src={images.barangayCertificate} />
-          )}
-
-          {images?.solicitationPermit && (
-            <ImageCard title="DSWD Solicitation Permit" src={images.solicitationPermit} />
+          {!images?.idImages?.length &&
+            !images?.requirementImages?.length &&
+            !images?.barangayCertificates?.length &&
+            !images?.solicitationPermits?.length && (
+              <p className="text-sm text-slate-400 col-span-full text-center py-8">
+                No documents were submitted for this campaign.
+              </p>
           )}
 
         </div>
       </div>
-    </div>
-  );
-};
-
-const ImageCard = ({
-  title,
-  src,
-}: {
-  title: string;
-  src: string;
-}) => {
-  return (
-    <div className="rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-      <div className="flex items-center justify-between px-3 pt-3">
-        <p className="font-bold text-sm text-slate-700">{title}</p>
-        <a
-          href={src}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs font-bold text-blue-600 hover:underline"
-        >
-          Open
-        </a>
-      </div>
-
-      <a
-        href={src}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="relative block w-full h-64 p-2 cursor-zoom-in"
-      >
-        <Image
-          src={src}
-          alt={title}
-          fill
-          className="object-contain"
-        />
-      </a>
     </div>
   );
 };

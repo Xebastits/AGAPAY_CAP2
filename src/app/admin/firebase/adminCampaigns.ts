@@ -7,7 +7,10 @@ export interface Campaign {
   description: string;
   goal: string;
   deadline: number;
-  idImageUrl: string;
+  idImages?: string[];
+  requirementImages?: string[];
+  barangayCertificates?: string[];
+  solicitationPermits?: string[];
   status: string;
   creator: string;
   fullName?: string;

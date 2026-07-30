@@ -4,27 +4,133 @@ import { useState } from "react";
 import { useActiveAccount } from "thirdweb/react";
 import { collection, addDoc } from "firebase/firestore";
 import { getDb } from "@/app/lib/firebase";
-import { uploadToCloudinary } from "@/app/lib/cloudinary";
+import { uploadToCloudinary, uploadManyToCloudinary } from "@/app/lib/cloudinary";
+import { formatFileSize, isImageMimeType } from "@/app/lib/fileUtils";
+import { formatNumberWithCommas, stripCommas } from "@/app/lib/format";
 
 type CreateCampaignModalProps = {
     setIsModalOpen: (value: boolean) => void;
     refreshRequests: () => void;
 };
 
-// --- NEW: Reusable image preview component ---
-function ImagePreview({ file }: { file: File | null }) {
-    if (!file) return null;
-    const url = URL.createObjectURL(file);
+// --- Reusable multi-file attachment picker + preview list ---
+// Accepts ANY file type (images, PDFs, docs, etc.) and lets the user attach
+// multiple files per document category.
+function FileAttachments({
+    label,
+    files,
+    onAdd,
+    onRemove,
+}: {
+    label: string;
+    files: File[];
+    onAdd: (newFiles: FileList | null) => void;
+    onRemove: (index: number) => void;
+}) {
+    const inputId = `file-input-${label.replace(/\s+/g, "-").toLowerCase()}`;
+
     return (
-        <div className="mt-2 flex items-center gap-3 p-2 bg-slate-50 border border-slate-200 rounded-lg">
-            <img
-                src={url}
-                alt="preview"
-                className="w-12 h-12 object-cover rounded border border-slate-300 flex-shrink-0"
+        <div>
+            <input
+                id={inputId}
+                type="file"
+                multiple
+                onChange={(e) => {
+                    onAdd(e.target.files);
+                    // allow re-selecting the same file(s) again later
+                    e.target.value = "";
+                }}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
             />
-            <span className="text-xs text-slate-600 truncate max-w-[200px]" title={file.name}>
-                {file.name}
-            </span>
+            {files.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                    {files.map((file, i) => {
+                        const isImage = isImageMimeType(file.type);
+                        const url = isImage ? URL.createObjectURL(file) : null;
+                        const ext = file.name.split(".").pop()?.toUpperCase().slice(0, 4) || "FILE";
+
+                        return (
+                            <div
+                                key={`${file.name}-${file.lastModified}-${i}`}
+                                className="relative flex items-center gap-2 pl-2 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-lg max-w-[240px]"
+                            >
+                                {isImage && url ? (
+                                    <img
+                                        src={url}
+                                        alt="preview"
+                                        className="w-10 h-10 object-cover rounded border border-slate-300 flex-shrink-0"
+                                    />
+                                ) : (
+                                    <div className="w-10 h-10 flex items-center justify-center rounded border border-slate-300 bg-slate-200 text-slate-500 text-[9px] font-bold flex-shrink-0">
+                                        {ext}
+                                    </div>
+                                )}
+                                <div className="min-w-0">
+                                    <p className="text-xs text-slate-700 truncate" title={file.name}>
+                                        {file.name}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400">{formatFileSize(file.size)}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => onRemove(i)}
+                                    aria-label={`Remove ${file.name}`}
+                                    className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center rounded-full bg-slate-300 hover:bg-red-500 text-white text-[10px] leading-none transition-colors"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// --- Single-image picker for the campaign cover photo ---
+// Unlike FileAttachments, this only ever holds ONE image: picking a new file
+// replaces whatever was selected before.
+function SingleImageAttachment({
+    file,
+    onChange,
+}: {
+    file: File | null;
+    onChange: (file: File | null) => void;
+}) {
+    const url = file ? URL.createObjectURL(file) : null;
+
+    return (
+        <div>
+            <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                    onChange(e.target.files?.[0] ?? null);
+                    e.target.value = "";
+                }}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
+            />
+            {file && url && (
+                <div className="relative mt-2 inline-flex items-center gap-2 pl-2 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-lg max-w-[240px]">
+                    <img
+                        src={url}
+                        alt="preview"
+                        className="w-10 h-10 object-cover rounded border border-slate-300 flex-shrink-0"
+                    />
+                    <p className="text-xs text-slate-700 truncate" title={file.name}>
+                        {file.name}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => onChange(null)}
+                        aria-label="Remove image"
+                        className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center rounded-full bg-slate-300 hover:bg-red-500 text-white text-[10px] leading-none transition-colors"
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
@@ -34,13 +140,10 @@ export default function CreateCampaignModal({
     refreshRequests
 }: CreateCampaignModalProps) {
 
-    const fileInputClass =
-        "block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300";
-
     const account = useActiveAccount();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // --- NEW: STEP TRACKER ---
+    // --- STEP TRACKER ---
     const [step, setStep] = useState(1);
 
     // Form State (Step 1)
@@ -52,14 +155,15 @@ export default function CreateCampaignModal({
     const [deadline, setDeadline] = useState("30");
     const [isEmergency, setIsEmergency] = useState(false);
 
-    // Form State (Step 2)
+    // Form State (Step 2) — the campaign cover is a SINGLE image; the other
+    // document categories can each hold MULTIPLE files of any type.
     const [campaignImage, setCampaignImage] = useState<File | null>(null);
-    const [idImage, setIdImage] = useState<File | null>(null);
-    const [requirementImage, setRequirementImage] = useState<File | null>(null);
-    const [barangayCertificate, setBarangayCertificate] = useState<File | null>(null);
-    const [solicitationPermit, setSolicitationPermit] = useState<File | null>(null);
+    const [idImages, setIdImages] = useState<File[]>([]);
+    const [requirementImages, setRequirementImages] = useState<File[]>([]);
+    const [barangayCertificates, setBarangayCertificates] = useState<File[]>([]);
+    const [solicitationPermits, setSolicitationPermits] = useState<File[]>([]);
 
-    // --- NEW: Step 3 Agreements ---
+    // --- Step 3 Agreements ---
     const [agreements, setAgreements] = useState({
         authenticity: false,
         privacy: false,
@@ -91,6 +195,13 @@ export default function CreateCampaignModal({
         if (val === "" || /^\d+$/.test(val)) setter(val);
     };
 
+    // For comma-formatted fields (e.g. Goal): the input displays "100,000"
+    // but the underlying state always stays a plain digit string ("100000"),
+    // which is what gets validated/submitted.
+    const handleFormattedIntegerChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+        setter(stripCommas(e.target.value));
+    };
+
     const handleBlur = (value: string, setter: (val: string) => void, min: number, max?: number) => {
         let num = parseInt(value);
         if (isNaN(num)) num = min;
@@ -99,7 +210,23 @@ export default function CreateCampaignModal({
         setter(num.toString());
     };
 
-    // --- NEW: Handle Next Step (Validates Step 1) ---
+    // --- Generic add/remove helpers for the multi-file attachment categories ---
+    const addFilesTo = (setter: React.Dispatch<React.SetStateAction<File[]>>) => (newFiles: FileList | null) => {
+        if (!newFiles || newFiles.length === 0) return;
+        setter((prev) => {
+            const existingKeys = new Set(prev.map((f) => `${f.name}-${f.size}-${f.lastModified}`));
+            const toAdd = Array.from(newFiles).filter(
+                (f) => !existingKeys.has(`${f.name}-${f.size}-${f.lastModified}`)
+            );
+            return [...prev, ...toAdd];
+        });
+    };
+
+    const removeFileFrom = (setter: React.Dispatch<React.SetStateAction<File[]>>) => (index: number) => {
+        setter((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    // --- Handle Next Step (Validates Step 1) ---
     const handleNext = () => {
         if (!fullName || !name || !description || !age || !goal || !deadline) {
             setStatusModal({ isOpen: true, type: "error", title: "Missing Fields", message: "Please fill out all the text fields." });
@@ -109,7 +236,7 @@ export default function CreateCampaignModal({
             setStatusModal({ isOpen: true, type: "error", title: "Invalid Age", message: "You must be at least 18 years old." });
             return;
         }
-        setStep(2); // ✅ correct
+        setStep(2);
     };
 
 
@@ -119,9 +246,15 @@ export default function CreateCampaignModal({
             return;
         }
 
-        // --- Validates Step 2 ---
-        if (!campaignImage || !idImage || !requirementImage || !barangayCertificate || !solicitationPermit) {
-            setStatusModal({ isOpen: true, type: "error", title: "Missing Images", message: "Please upload all required images for reference." });
+        // --- Validates Step 2: campaign cover image + at least one attachment per document category ---
+        if (
+            !campaignImage ||
+            idImages.length === 0 ||
+            requirementImages.length === 0 ||
+            barangayCertificates.length === 0 ||
+            solicitationPermits.length === 0
+        ) {
+            setStatusModal({ isOpen: true, type: "error", title: "Missing Attachments", message: "Please attach a campaign cover image and at least one file for each required document." });
             return;
         }
 
@@ -134,11 +267,13 @@ export default function CreateCampaignModal({
         try {
             setIsSubmitting(true);
 
-            const campUrl = await uploadToCloudinary(campaignImage);
-            const idUrl = await uploadToCloudinary(idImage);
-            const reqUrl = await uploadToCloudinary(requirementImage);
-            const barangayUrl = await uploadToCloudinary(barangayCertificate);
-            const permitUrl = await uploadToCloudinary(solicitationPermit);
+            const [campUrl, idUrls, reqUrls, barangayUrls, permitUrls] = await Promise.all([
+                uploadToCloudinary(campaignImage),
+                uploadManyToCloudinary(idImages),
+                uploadManyToCloudinary(requirementImages),
+                uploadManyToCloudinary(barangayCertificates),
+                uploadManyToCloudinary(solicitationPermits),
+            ]);
 
             const finalName = isEmergency ? `(EMERGENCY) ${name}` : name;
 
@@ -157,11 +292,14 @@ export default function CreateCampaignModal({
                 goal: goal,
                 deadline: parseInt(deadline),
                 isEmergency,
+
+                // Campaign cover is a single URL; the rest are arrays since
+                // each of those categories can hold multiple files of any type
                 imageUrl: campUrl,
-                idImageUrl: idUrl,
-                requirementImageUrl: reqUrl,
-                barangayCertificateUrl: barangayUrl,
-                solicitationPermitUrl: permitUrl,
+                idImages: idUrls,
+                requirementImages: reqUrls,
+                barangayCertificates: barangayUrls,
+                solicitationPermits: permitUrls,
 
                 agreements,
                 status: "pending",
@@ -202,7 +340,7 @@ export default function CreateCampaignModal({
                     <button className="text-gray-500 hover:text-black" onClick={() => setIsModalOpen(false)}>✕</button>
                 </div>
 
-                {/* --- NEW: Progress Bar --- */}
+                {/* --- Progress Bar --- */}
                 <div className="w-full bg-slate-100 rounded-full h-2 mb-10 border border-slate-200">
                     <div className={`bg-blue-600 h-1.5 rounded-full transition-all duration-10000
   ${step === 1 ? 'w-[10%]' : step === 2 ? 'w-[60%]' : 'w-[100%]'}`}></div>
@@ -249,7 +387,7 @@ export default function CreateCampaignModal({
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold mb-1"><span className="text-red-600">*</span> Goal (PHP)</label>
-                                    <input type="number" value={goal} onChange={(e) => handleIntegerChange(e, setGoal)} onBlur={() => handleBlur(goal, setGoal, 1)} onKeyDown={preventNonIntegers} className="w-full px-3 py-2 border rounded" placeholder="1000" />
+                                    <input type="text" inputMode="numeric" value={formatNumberWithCommas(goal)} onChange={(e) => handleFormattedIntegerChange(e, setGoal)} onBlur={() => handleBlur(goal, setGoal, 1)} className="w-full px-3 py-2 border rounded" placeholder="1,000" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold mb-1"><span className="text-red-600">*</span> Duration (Days)</label>
@@ -299,62 +437,61 @@ export default function CreateCampaignModal({
                         </>
                     )}
 
-                    {/* ======================= STEP 2: IMAGES ======================= */}
+                    {/* ======================= STEP 2: DOCUMENT ATTACHMENTS ======================= */}
                     {step === 2 && (
                         <div className="space-y-4 animate-fadeIn">
-                            {/* 1. Campaign Image */}
-                            <div>
-                                <label className="block text-sm font-bold text-slate-800 mb-2">
-                                    <span className="text-red-600">*</span> 1. Campaign Cover Image 
-                                </label>
-                                <p className="text-xs text-slate-600 mb-2 italic">
-                                    Add a clear cover photo that represents your campaign. This will be displayed on the campaign page.
-                                </p>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => setCampaignImage(e.target.files?.[0] || null)}
-                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
-                                />
-                                <ImagePreview file={campaignImage} />
+                            <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-lg p-3">
+                                You can attach <strong>multiple files</strong> per document, and any file type is
+                                accepted (photos, scans, PDFs, Word docs, etc.).
                             </div>
 
-                            {/* 2. ID Image */}
+                            {/* 1. Campaign Image (single) */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-800 mb-2">
+                                    <span className="text-red-600">*</span> 1. Campaign Cover Image
+                                </label>
+                                <p className="text-xs text-slate-600 mb-2 italic">
+                                    Add one clear cover photo that represents your campaign. This will be displayed on the campaign page.
+                                </p>
+                                <SingleImageAttachment
+                                    file={campaignImage}
+                                    onChange={setCampaignImage}
+                                />
+                            </div>
+
+                            {/* 2. ID Attachment(s) */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-800 mb-2">
                                     <span className="text-red-600">*</span> 2. ID Verification
                                 </label>
                                 <p className="text-xs text-slate-600 mb-2 italic">
-                                    Upload a clear photo of valid National ID for verification.
-
+                                    Upload clear file(s) of a valid National ID for verification (photo, scan, or PDF).
                                 </p>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => setIdImage(e.target.files?.[0] || null)}
-                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
+                                <FileAttachments
+                                    label="ID Verification"
+                                    files={idImages}
+                                    onAdd={addFilesTo(setIdImages)}
+                                    onRemove={removeFileFrom(setIdImages)}
                                 />
-                                <ImagePreview file={idImage} />
                             </div>
 
-                            {/* 3. Requirement Image */}
+                            {/* 3. Requirement Attachment(s) */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-800 mb-1">
                                     <span className="text-red-600">*</span> 3. Proof of Need (Requirements)
                                 </label>
                                 <p className="text-xs text-slate-600 mb-2 italic">
-                                    Upload medical bill, prescription, hospital certificate, etc.
+                                    Upload medical bill(s), prescription(s), hospital certificate, etc. — any format.
                                 </p>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => setRequirementImage(e.target.files?.[0] || null)}
-                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
+                                <FileAttachments
+                                    label="Proof of Need"
+                                    files={requirementImages}
+                                    onAdd={addFilesTo(setRequirementImages)}
+                                    onRemove={removeFileFrom(setRequirementImages)}
                                 />
-                                <ImagePreview file={requirementImage} />
                             </div>
 
-                            {/* 4. Barangay Certificate */}
+                            {/* 4. Barangay Certificate(s) */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-800 mb-1">
                                     <span className="text-red-600">*</span> 4. Barangay Certificate of Indigency
@@ -362,16 +499,15 @@ export default function CreateCampaignModal({
                                 <p className="text-xs text-slate-600 mb-2 italic">
                                     Proof that you are eligible for assistance (issued by your barangay).
                                 </p>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => setBarangayCertificate(e.target.files?.[0] || null)}
-                                    className={fileInputClass}
+                                <FileAttachments
+                                    label="Barangay Certificate"
+                                    files={barangayCertificates}
+                                    onAdd={addFilesTo(setBarangayCertificates)}
+                                    onRemove={removeFileFrom(setBarangayCertificates)}
                                 />
-                                <ImagePreview file={barangayCertificate} />
                             </div>
 
-                            {/* 5. Public Solicitation Permit */}
+                            {/* 5. Public Solicitation Permit(s) */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-800 mb-1">
                                     <span className="text-red-600">*</span> 5. Public Solicitation Permit
@@ -379,13 +515,12 @@ export default function CreateCampaignModal({
                                 <p className="text-xs text-slate-600 mb-2 italic">
                                     Permit needed to legally fundraise publicly according to PD No. 1564.
                                 </p>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => setSolicitationPermit(e.target.files?.[0] || null)}
-                                    className={fileInputClass}
+                                <FileAttachments
+                                    label="Solicitation Permit"
+                                    files={solicitationPermits}
+                                    onAdd={addFilesTo(setSolicitationPermits)}
+                                    onRemove={removeFileFrom(setSolicitationPermits)}
                                 />
-                                <ImagePreview file={solicitationPermit} />
                             </div>
 
                             <div className="flex gap-4 pt-4 mt-4 border-t justify-between">

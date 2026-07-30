@@ -15,6 +15,7 @@ import { RejectCampaignModal } from "./components/RejectModal";
 import { ApproveCampaignModal } from "./components/ApproveModal";
 import { getPendingCampaigns, rejectCampaignById, approveCampaignById } from "./firebase/adminCampaigns";
 import { CampaignImagesModal } from "./components/CampaignImagesModal";
+import { formatNumberWithCommas } from "../lib/format";
 
 
 interface Campaign {
@@ -27,10 +28,10 @@ interface Campaign {
     creator: string;
 
     imageUrl?: string;
-    idImageUrl?: string;
-    requirementImageUrl?: string;
-    barangayCertificateUrl?: string;
-    solicitationPermitUrl?: string;
+    idImages?: string[];
+    requirementImages?: string[];
+    barangayCertificates?: string[];
+    solicitationPermits?: string[];
 
     fullName?: string;
     createdAt?: number;
@@ -133,10 +134,10 @@ export const AdminDashboard = () => {
 
     const getCampaignImages = (campaign: any) => ({
         campaignImage: campaign.imageUrl,
-        idImage: campaign.idImageUrl,
-        requirementImage: campaign.requirementImageUrl,
-        barangayCertificate: campaign.barangayCertificateUrl,
-        solicitationPermit: campaign.solicitationPermitUrl,
+        idImages: campaign.idImages || [],
+        requirementImages: campaign.requirementImages || [],
+        barangayCertificates: campaign.barangayCertificates || [],
+        solicitationPermits: campaign.solicitationPermits || [],
     });
 
     useEffect(() => {
@@ -332,7 +333,7 @@ export const AdminDashboard = () => {
                                                                 Normal
                                                             </span>
                                                         )}
-                                                        <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100">Goal: ₱{campaign.goal}</span>
+                                                        <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100">Goal: ₱{formatNumberWithCommas(campaign.goal)}</span>
                                                         <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100">Duration: {campaign.deadline} Days</span>
                                                     </div>
                                                 </div>

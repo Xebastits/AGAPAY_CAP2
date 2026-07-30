@@ -9,6 +9,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { getDb } from "@/app/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { arcTestnet } from "thirdweb/chains";
+import { formatNumberWithCommas } from "@/app/lib/format";
 
 type CampaignCardProps = {
     campaignAddress: string;
@@ -179,13 +180,13 @@ const handleWithdraw = useCallback(async () => {
                     {!isLoadingBalance && (
                         stats.isSuccessful ? (
                             <div className="mb-4 bg-green-100 border border-green-200 text-green-800 text-xs font-bold px-3 py-2 rounded text-center">
-                                GOAL REACHED! (₱{stats.displayGoal})
+                                GOAL REACHED! (₱{formatNumberWithCommas(stats.displayGoal)})
                             </div>
                         ) : (
                             <div className="mb-4">
                                 <div className="flex justify-between font-bold text-m mb-1.5 text-slate-600">
-                                    <span>Raised: ₱{stats.displayBalance}</span>
-                                    <span>Goal: ₱{stats.displayGoal}</span>
+                                    <span>Raised: ₱{formatNumberWithCommas(stats.displayBalance)}</span>
+                                    <span>Goal: ₱{formatNumberWithCommas(stats.displayGoal)}</span>
                                 </div>
                                 <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
                                     <div className="h-full bg-blue-600 rounded-full transition-all" style={{ width: `${Math.min(stats.percentage, 100)}%` }} />

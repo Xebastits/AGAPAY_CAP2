@@ -8,6 +8,7 @@ import { useActiveAccount, useReadContract } from "thirdweb/react";
 import { useNetwork } from "@/app/constants/network";
 import { getDb } from "@/app/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import { formatNumberWithCommas, stripCommas } from "@/app/lib/format";
 
 const formatBlockchainDate = (timestamp?: bigint) =>
     timestamp
@@ -283,10 +284,10 @@ export default function CampaignPage() {
                             {/* STATS */}
                             <div className="bg-white p-6 rounded-xl shadow-md border">
                                 <p className="text-3xl font-extrabold text-blue-600">
-                                    ₱{balance?.toString() || "0"}
+                                    ₱{formatNumberWithCommas(balance?.toString() || "0")}
                                 </p>
                                 <p className="text-sm text-slate-500">
-                                    raised of ₱{goal?.toString() || "0"}
+                                    raised of ₱{formatNumberWithCommas(goal?.toString() || "0")}
                                 </p>
                                 <div className="mt-4 w-full bg-slate-200 h-3 rounded-full overflow-hidden">
                                     <div
@@ -310,9 +311,10 @@ export default function CampaignPage() {
                                 <div className="bg-white p-6 rounded-xl shadow-md border">
                                     <h3 className="text-lg font-bold mb-4">Donate</h3>
                                     <input
-                                        type="number"
-                                        value={donationAmount}
-                                        onChange={(e) => setDonationAmount(e.target.value)}
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={formatNumberWithCommas(donationAmount)}
+                                        onChange={(e) => setDonationAmount(stripCommas(e.target.value))}
                                         placeholder="Enter amount"
                                         disabled={isProcessing}
                                         className="w-full p-3 border rounded-lg text-lg mb-4"
