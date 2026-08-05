@@ -484,7 +484,7 @@ export default function CreateCampaignModal({
                     everything else has already been carried over. */}
                 {isResubmission && (
                     <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-                        <p className="font-bold mb-1">You're fixing a previous submission</p>
+                        <p className="font-bold mb-1">You&apos;re fixing a previous submission</p>
                         <p>Your earlier details and documents are already filled in below — just update whatever the reviewer flagged, then resubmit.</p>
                         {editingCampaign?.rejectionReason && (
                             <p className="mt-2">

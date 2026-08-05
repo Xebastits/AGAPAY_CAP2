@@ -81,7 +81,7 @@ export default function RejectionGuidanceModal({
                         <h4 className="font-bold mb-2">Notice:</h4>
                         {isChangesRequested ? (
                             <p className="text-amber-700 font-bold mt-2">
-                                Your previous details and documents are already saved — you'll only need to
+                                Your previous details and documents are already saved — you&apos;ll only need to
                                 update what&apos;s flagged above, then resubmit for another review.
                             </p>
                         ) : (
