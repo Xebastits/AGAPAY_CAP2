@@ -3,17 +3,27 @@
 const CLOUD_NAME = "dhc2nduyf";
 const UPLOAD_PRESET = "vkcgsvte";
 
-// Uploads a single file of ANY type (image, PDF, doc, etc.) using Cloudinary's
-// "auto" resource type, which detects whether the file is an image, video, or
-// raw document and routes it accordingly.
+// Uploads a single file of ANY type (image, PDF, doc, etc.).
+//
+// IMPORTANT: images go through Cloudinary's "image" resource type as before,
+// but everything else (PDFs, Word/Excel/PowerPoint docs, zips, etc.) is
+// uploaded as "raw". This matters because, since 2023, Cloudinary blocks
+// direct delivery of PDF/ZIP files through the "image" delivery type by
+// default (a security measure against old Ghostscript exploits) — those
+// URLs 401 unless "Allow delivery of PDF and ZIP files" is manually enabled
+// in the Cloudinary console. Uploading non-images as "raw" instead serves
+// the file's bytes as-is (no image processing involved), so it isn't
+// subject to that restriction and works out of the box.
 export const uploadToCloudinary = async (file: File): Promise<string> => {
+  const resourceType = file.type.startsWith("image/") ? "auto" : "raw";
+
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", UPLOAD_PRESET);
 
   try {
     const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
+      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`,
       { method: "POST", body: formData }
     );
 

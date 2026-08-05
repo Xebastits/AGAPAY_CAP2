@@ -13,7 +13,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { RejectCampaignModal } from "./components/RejectModal";
 import { ApproveCampaignModal } from "./components/ApproveModal";
-import { getPendingCampaigns, rejectCampaignById, approveCampaignById } from "./firebase/adminCampaigns";
+import { getPendingCampaigns, getChangesRequestedCampaigns, rejectCampaignById, requestCampaignChangesById, approveCampaignById } from "./firebase/adminCampaigns";
 import { CampaignImagesModal } from "./components/CampaignImagesModal";
 import { formatNumberWithCommas } from "../lib/format";
 
@@ -35,6 +35,9 @@ interface Campaign {
 
     fullName?: string;
     createdAt?: number;
+    rejectionReason?: string;
+    rejectionDetails?: string;
+    changesRequestedAt?: number;
 }
 
 
@@ -94,6 +97,7 @@ export const AdminDashboard = () => {
     const [selectedCampaignImages, setSelectedCampaignImages] = useState<any>(null);
 
     const [pendingCampaigns, setPendingCampaigns] = useState<Campaign[]>([]);
+    const [changesRequestedCampaigns, setChangesRequestedCampaigns] = useState<Campaign[]>([]);
     const [loadingFirebase, setLoadingFirebase] = useState(true);
 
     const [pendingPage, setPendingPage] = useState(1);
@@ -103,6 +107,12 @@ export const AdminDashboard = () => {
     const [rejectReason, setRejectReason] = useState("");
     const [rejectDetails, setRejectDetails] = useState("");
     const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+
+    const [isRequestChangesModalOpen, setIsRequestChangesModalOpen] = useState(false);
+    const [requestChangesReason, setRequestChangesReason] = useState("");
+    const [requestChangesDetails, setRequestChangesDetails] = useState("");
+    const [selectedChangesCampaignId, setSelectedChangesCampaignId] = useState<string | null>(null);
+
     const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
     const [campaignToApprove, setCampaignToApprove] = useState<Campaign | null>(null);
     const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
@@ -146,8 +156,12 @@ export const AdminDashboard = () => {
 
         const fetchPendingCampaigns = async () => {
             try {
-                const list = await getPendingCampaigns();
+                const [list, changesList] = await Promise.all([
+                    getPendingCampaigns(),
+                    getChangesRequestedCampaigns(),
+                ]);
                 setPendingCampaigns(list);
+                setChangesRequestedCampaigns(changesList);
             } catch (e) {
                 console.error("Firebase Error:", e);
                 showToast("Error fetching pending campaigns.", "error");
@@ -179,6 +193,37 @@ export const AdminDashboard = () => {
             setRejectReason("");
             setRejectDetails("");
             showToast("Campaign rejected successfully.", "success");
+        } catch (e) {
+            showToast("Error updating database.", "error");
+        }
+    };
+
+    const openRequestChangesModal = (id: string) => {
+        setSelectedChangesCampaignId(id);
+        setRequestChangesReason("");
+        setRequestChangesDetails("");
+        setIsRequestChangesModalOpen(true);
+    };
+
+    const submitRequestChanges = async () => {
+        if (!selectedChangesCampaignId || !requestChangesReason) {
+            return showToast("Please select what needs to change.", "error");
+        }
+
+        try {
+            await requestCampaignChangesById(selectedChangesCampaignId, requestChangesReason, requestChangesDetails);
+            const movedCampaign = pendingCampaigns.find(c => c.id === selectedChangesCampaignId);
+            setPendingCampaigns(prev => prev.filter(c => c.id !== selectedChangesCampaignId));
+            if (movedCampaign) {
+                setChangesRequestedCampaigns(prev => [
+                    { ...movedCampaign, status: "changes_requested", rejectionReason: requestChangesReason, rejectionDetails: requestChangesDetails, changesRequestedAt: Date.now() },
+                    ...prev,
+                ]);
+            }
+            setIsRequestChangesModalOpen(false);
+            setRequestChangesReason("");
+            setRequestChangesDetails("");
+            showToast("Sent back to the beneficiary for changes.", "success");
         } catch (e) {
             showToast("Error updating database.", "error");
         }
@@ -361,6 +406,13 @@ export const AdminDashboard = () => {
                                                             Reject
                                                         </button>
                                                         <button
+                                                            onClick={() => openRequestChangesModal(campaign.id)}
+                                                            disabled={isDeploying}
+                                                            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white border border-amber-100 px-5 py-2.5 rounded-lg font-semibold shadow-sm transition-all disabled:opacity-50"
+                                                        >
+                                                            Request Changes
+                                                        </button>
+                                                        <button
                                                             onClick={() => openApproveModal(campaign)}
                                                             disabled={isDeploying}
                                                             className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-semibold shadow-md transition-all disabled:opacity-50"
@@ -395,6 +447,41 @@ export const AdminDashboard = () => {
                                 </div>
                             )}
                         </>
+                    )}
+                </section>
+
+                {/* 1B. AWAITING BENEFICIARY CHANGES */}
+                <section>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-2xl font-bold text-slate-700">Awaiting Beneficiary Changes</h2>
+                            <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full">
+                                {changesRequestedCampaigns.length} Sent Back
+                            </span>
+                        </div>
+                    </div>
+
+                    {changesRequestedCampaigns.length === 0 ? (
+                        <div className="bg-white p-6 rounded-lg border border-dashed border-slate-300 text-center text-slate-400 text-sm">
+                            Nothing waiting on a beneficiary right now.
+                        </div>
+                    ) : (
+                        <div className="grid gap-3">
+                            {changesRequestedCampaigns.map((campaign) => (
+                                <div key={campaign.id} className="bg-white p-4 rounded-lg shadow-sm border border-amber-200 flex items-center justify-between gap-4 min-w-0">
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-slate-800 truncate">{campaign.name}</p>
+                                        <p className="text-xs text-slate-500 break-all">{campaign.fullName ? `${campaign.fullName} (${campaign.creator})` : campaign.creator}</p>
+                                        {campaign.rejectionReason && (
+                                            <p className="text-xs text-amber-700 mt-1"><strong>Requested:</strong> {campaign.rejectionReason}</p>
+                                        )}
+                                    </div>
+                                    <span className="flex-shrink-0 text-xs font-bold px-2 py-1 rounded uppercase bg-amber-100 text-amber-700">
+                                        Waiting on beneficiary
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </section>
 
@@ -481,6 +568,19 @@ export const AdminDashboard = () => {
                 onDetailsChange={setRejectDetails}
                 onCancel={() => setIsRejectModalOpen(false)}
                 onConfirm={submitRejection}
+                mode="reject"
+            />
+
+            <RejectCampaignModal
+                open={isRequestChangesModalOpen}
+                reasons={REJECTION_REASONS}
+                rejectReason={requestChangesReason}
+                rejectDetails={requestChangesDetails}
+                onReasonChange={setRequestChangesReason}
+                onDetailsChange={setRequestChangesDetails}
+                onCancel={() => setIsRequestChangesModalOpen(false)}
+                onConfirm={submitRequestChanges}
+                mode="request_changes"
             />
 
             <ApproveCampaignModal

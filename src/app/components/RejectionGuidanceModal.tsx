@@ -3,6 +3,7 @@
 type CampaignRequest = {
     id: string;
     name: string;
+    status: string;
     rejectionReason?: string;
     rejectionDetails?: string;
     rejectionTime?: number;
@@ -12,7 +13,7 @@ type RejectionGuidanceModalProps = {
     isOpen: boolean;
     onClose: () => void;
     request: CampaignRequest | null;
-    openCreateModal: () => void; // NEW
+    openCreateModal: () => void; // opens CreateCampaignModal prefilled with this request's data
 };
 
 export default function RejectionGuidanceModal({
@@ -24,28 +25,34 @@ export default function RejectionGuidanceModal({
 
     if (!isOpen || !request) return null;
 
-    const handleCreateNew = () => {
-        onClose();          // close rejection modal
-        openCreateModal();  // open create campaign modal in dashboard
+    const isChangesRequested = request.status === "changes_requested";
+
+    const handleFixAndResubmit = () => {
+        onClose();          // close guidance modal
+        openCreateModal();  // open CreateCampaignModal, prefilled with this campaign's data
     };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center backdrop-blur-md z-50">
             <div className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <p className="text-2xl font-bold text-slate-800">Campaign Rejection Guidance</p>
+                    <p className="text-2xl font-bold text-slate-800">
+                        {isChangesRequested ? "Changes Requested" : "Campaign Rejection Guidance"}
+                    </p>
                     <button className="text-gray-500 hover:text-black" onClick={onClose}>✕</button>
                 </div>
 
                 <div className="text-sm text-slate-700 mb-4">
                     <div className="mb-4">
                         <h3 className="font-bold text-xl mb-4">
-                            Your campaign &quot;{request.name}&quot; was rejected
+                            {isChangesRequested
+                                ? <>The reviewer asked for changes to &quot;{request.name}&quot;</>
+                                : <>Your campaign &quot;{request.name}&quot; was rejected</>}
                         </h3>
 
                         {request.rejectionReason && (
-                            <div className="bg-red-200 p-3 rounded border mb-4">
-                                <strong>Reason for rejection:</strong> {request.rejectionReason}
+                            <div className={`p-3 rounded border mb-4 ${isChangesRequested ? "bg-amber-100 border-amber-200" : "bg-red-200"}`}>
+                                <strong>{isChangesRequested ? "What to fix:" : "Reason for rejection:"}</strong> {request.rejectionReason}
                             </div>
                         )}
                     </div>
@@ -72,9 +79,17 @@ export default function RejectionGuidanceModal({
 
                     <div className="mb-4">
                         <h4 className="font-bold mb-2">Notice:</h4>
-                        <p className="text-red-600 font-bold mt-2">
-                            You may create a new campaign under 24-hours with corrected details to be re-evaluated.
-                        </p>
+                        {isChangesRequested ? (
+                            <p className="text-amber-700 font-bold mt-2">
+                                Your previous details and documents are already saved — you'll only need to
+                                update what&apos;s flagged above, then resubmit for another review.
+                            </p>
+                        ) : (
+                            <p className="text-red-600 font-bold mt-2">
+                                Your previous details and documents are already saved — fix what&apos;s flagged
+                                above and resubmit for re-evaluation.
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -87,10 +102,10 @@ export default function RejectionGuidanceModal({
                     </button>
 
                     <button
-                        onClick={handleCreateNew}
+                        onClick={handleFixAndResubmit}
                         className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded transition border border-blue-800 rounded-md"
                     >
-                        Create New Campaign
+                        Fix &amp; Resubmit
                     </button>
                 </div>
             </div>

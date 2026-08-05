@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { isImageFile } from "@/app/lib/fileUtils";
+import { FileViewer } from "@/app/components/FilePreview";
 
 interface ApproveCampaignModalProps {
   open: boolean;
@@ -100,7 +100,6 @@ export const ApproveCampaignModal = ({
   };
 
   const activeSrc = activeFiles[activeIndex];
-  const activeIsImage = activeSrc ? isImageFile(activeSrc) : false;
 
   return (
     <>
@@ -195,19 +194,7 @@ export const ApproveCampaignModal = ({
                     {activeLabel} {activeFiles.length > 1 && `(${activeIndex + 1}/${activeFiles.length})`}
                   </p>
                   <div className="relative w-full flex-1 min-h-[200px] rounded-lg overflow-hidden border border-slate-200 bg-white">
-                    {activeIsImage ? (
-                      <Image
-                        src={activeSrc}
-                        alt={activeLabel}
-                        fill
-                        className="object-contain"
-                        sizes="400px"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-sm text-slate-500 text-center px-4">
-                        This file type can&apos;t be previewed here — use &quot;Open full image&quot; below.
-                      </div>
-                    )}
+                    <FileViewer src={activeSrc} title={activeLabel} />
                   </div>
 
                   {activeFiles.length > 1 && (

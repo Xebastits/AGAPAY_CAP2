@@ -2,20 +2,54 @@
 
 import { useState } from "react";
 import { useActiveAccount } from "thirdweb/react";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
 import { getDb } from "@/app/lib/firebase";
 import { uploadToCloudinary, uploadManyToCloudinary } from "@/app/lib/cloudinary";
-import { formatFileSize, isImageMimeType } from "@/app/lib/fileUtils";
+import { formatFileSize, isImageMimeType, getFileNameFromUrl, getFileKind, isAcceptedDocumentFile } from "@/app/lib/fileUtils";
 import { formatNumberWithCommas, stripCommas } from "@/app/lib/format";
+import { FileThumbnail, FileViewer } from "@/app/components/FilePreview";
+
+// An attachment slot is either a file the user is uploading right now, or a
+// file that was already uploaded on a previous (rejected) submission and is
+// being kept as-is. This lets a resubmission mix "kept" and "replaced" files.
+type Attachment =
+    | { kind: "existing"; url: string }
+    | { kind: "new"; file: File };
+
+const toAttachments = (urls?: string[]): Attachment[] =>
+    (urls || []).map((url) => ({ kind: "existing", url }));
+
+// The subset of a Firestore campaign doc needed to prefill the form when
+// a beneficiary is fixing and resubmitting a previously reviewed campaign.
+export type EditingCampaign = {
+    id: string;
+    fullName?: string;
+    name?: string;
+    description?: string;
+    age?: number;
+    goal?: string | number;
+    deadline?: number;
+    isEmergency?: boolean;
+    imageUrl?: string;
+    idImages?: string[];
+    requirementImages?: string[];
+    barangayCertificates?: string[];
+    solicitationPermits?: string[];
+    rejectionReason?: string;
+    rejectionDetails?: string;
+};
 
 type CreateCampaignModalProps = {
     setIsModalOpen: (value: boolean) => void;
     refreshRequests: () => void;
+    editingCampaign?: EditingCampaign | null;
 };
 
 // --- Reusable multi-file attachment picker + preview list ---
-// Accepts ANY file type (images, PDFs, docs, etc.) and lets the user attach
-// multiple files per document category.
+// Accepts images, PDFs, and office documents (Word/Excel/PowerPoint), and
+// lets the user attach multiple files per document category. Supports a mix
+// of files already on file (from a previous submission) and newly picked
+// files.
 function FileAttachments({
     label,
     files,
@@ -23,11 +57,13 @@ function FileAttachments({
     onRemove,
 }: {
     label: string;
-    files: File[];
+    files: Attachment[];
     onAdd: (newFiles: FileList | null) => void;
     onRemove: (index: number) => void;
 }) {
     const inputId = `file-input-${label.replace(/\s+/g, "-").toLowerCase()}`;
+    const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+    const previewAtt = previewIndex !== null ? files[previewIndex] : null;
 
     return (
         <div>
@@ -44,37 +80,43 @@ function FileAttachments({
             />
             {files.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
-                    {files.map((file, i) => {
-                        const isImage = isImageMimeType(file.type);
-                        const url = isImage ? URL.createObjectURL(file) : null;
-                        const ext = file.name.split(".").pop()?.toUpperCase().slice(0, 4) || "FILE";
+                    {files.map((att, i) => {
+                        const isNew = att.kind === "new";
+                        const name = isNew ? att.file.name : getFileNameFromUrl(att.url);
+                        const previewUrl = isNew ? URL.createObjectURL(att.file) : att.url;
+                        const kind = isNew
+                            ? (isImageMimeType(att.file.type) ? "image" : getFileKind(att.file.name))
+                            : getFileKind(att.url);
 
                         return (
                             <div
-                                key={`${file.name}-${file.lastModified}-${i}`}
-                                className="relative flex items-center gap-2 pl-2 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-lg max-w-[240px]"
+                                key={isNew ? `new-${att.file.name}-${att.file.lastModified}-${i}` : `existing-${att.url}-${i}`}
+                                className={`relative flex items-center gap-2 pl-2 pr-7 py-2 border rounded-lg max-w-[240px] ${isNew ? "bg-slate-50 border-slate-200" : "bg-blue-50 border-blue-200"}`}
                             >
-                                {isImage && url ? (
-                                    <img
-                                        src={url}
-                                        alt="preview"
-                                        className="w-10 h-10 object-cover rounded border border-slate-300 flex-shrink-0"
-                                    />
-                                ) : (
-                                    <div className="w-10 h-10 flex items-center justify-center rounded border border-slate-300 bg-slate-200 text-slate-500 text-[9px] font-bold flex-shrink-0">
-                                        {ext}
-                                    </div>
-                                )}
-                                <div className="min-w-0">
-                                    <p className="text-xs text-slate-700 truncate" title={file.name}>
-                                        {file.name}
+                                <button
+                                    type="button"
+                                    onClick={() => setPreviewIndex(i)}
+                                    aria-label={`Preview ${name}`}
+                                    className="relative w-10 h-10 rounded border border-slate-300 overflow-hidden flex-shrink-0 cursor-zoom-in"
+                                >
+                                    <FileThumbnail src={previewUrl} alt={name} kind={kind} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPreviewIndex(i)}
+                                    className="min-w-0 text-left"
+                                >
+                                    <p className="text-xs text-slate-700 truncate" title={name}>
+                                        {name}
                                     </p>
-                                    <p className="text-[10px] text-slate-400">{formatFileSize(file.size)}</p>
-                                </div>
+                                    <p className="text-[10px] text-slate-400">
+                                        {isNew ? formatFileSize(att.file.size) : "Already on file"}
+                                    </p>
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => onRemove(i)}
-                                    aria-label={`Remove ${file.name}`}
+                                    aria-label={`Remove ${name}`}
                                     className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center rounded-full bg-slate-300 hover:bg-red-500 text-white text-[10px] leading-none transition-colors"
                                 >
                                     ✕
@@ -84,21 +126,52 @@ function FileAttachments({
                     })}
                 </div>
             )}
+
+            {/* Preview lightbox */}
+            {previewAtt && (
+                <div
+                    className="fixed inset-0 z-[10000] bg-black/80 flex items-center justify-center p-6"
+                    onClick={() => setPreviewIndex(null)}
+                >
+                    <div className="relative max-w-3xl w-full max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            onClick={() => setPreviewIndex(null)}
+                            className="absolute -top-10 right-0 text-white text-sm font-bold"
+                        >
+                            ✕ Close
+                        </button>
+                        <div className="relative w-full h-[65vh] bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                            <FileViewer
+                                src={previewAtt.kind === "new" ? URL.createObjectURL(previewAtt.file) : previewAtt.url}
+                                title={previewAtt.kind === "new" ? previewAtt.file.name : getFileNameFromUrl(previewAtt.url)}
+                                kind={previewAtt.kind === "new"
+                                    ? (isImageMimeType(previewAtt.file.type) ? "image" : getFileKind(previewAtt.file.name))
+                                    : undefined}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
 // --- Single-image picker for the campaign cover photo ---
 // Unlike FileAttachments, this only ever holds ONE image: picking a new file
-// replaces whatever was selected before.
+// replaces whatever was selected before (including a kept "existing" one).
 function SingleImageAttachment({
-    file,
+    attachment,
     onChange,
 }: {
-    file: File | null;
-    onChange: (file: File | null) => void;
+    attachment: Attachment | null;
+    onChange: (attachment: Attachment | null) => void;
 }) {
-    const url = file ? URL.createObjectURL(file) : null;
+    const previewUrl = attachment
+        ? attachment.kind === "new" ? URL.createObjectURL(attachment.file) : attachment.url
+        : null;
+    const name = attachment
+        ? attachment.kind === "new" ? attachment.file.name : "Current cover image"
+        : "";
 
     return (
         <div>
@@ -106,20 +179,21 @@ function SingleImageAttachment({
                 type="file"
                 accept="image/*"
                 onChange={(e) => {
-                    onChange(e.target.files?.[0] ?? null);
+                    const file = e.target.files?.[0];
+                    if (file) onChange({ kind: "new", file });
                     e.target.value = "";
                 }}
                 className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300"
             />
-            {file && url && (
-                <div className="relative mt-2 inline-flex items-center gap-2 pl-2 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-lg max-w-[240px]">
+            {attachment && previewUrl && (
+                <div className={`relative mt-2 inline-flex items-center gap-2 pl-2 pr-7 py-2 border rounded-lg max-w-[240px] ${attachment.kind === "new" ? "bg-slate-50 border-slate-200" : "bg-blue-50 border-blue-200"}`}>
                     <img
-                        src={url}
+                        src={previewUrl}
                         alt="preview"
                         className="w-10 h-10 object-cover rounded border border-slate-300 flex-shrink-0"
                     />
-                    <p className="text-xs text-slate-700 truncate" title={file.name}>
-                        {file.name}
+                    <p className="text-xs text-slate-700 truncate" title={name}>
+                        {name}
                     </p>
                     <button
                         type="button"
@@ -137,31 +211,36 @@ function SingleImageAttachment({
 
 export default function CreateCampaignModal({
     setIsModalOpen,
-    refreshRequests
+    refreshRequests,
+    editingCampaign = null,
 }: CreateCampaignModalProps) {
 
     const account = useActiveAccount();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isResubmission = !!editingCampaign;
 
     // --- STEP TRACKER ---
     const [step, setStep] = useState(1);
 
-    // Form State (Step 1)
-    const [fullName, setFullName] = useState("");
-    const [name, setName] = useState("");
-    const [age, setAge] = useState("");
-    const [description, setDescription] = useState("");
-    const [goal, setGoal] = useState("100");
-    const [deadline, setDeadline] = useState("30");
-    const [isEmergency, setIsEmergency] = useState(false);
+    // Form State (Step 1) — prefilled from the previous submission when resubmitting
+    const [fullName, setFullName] = useState(editingCampaign?.fullName || "");
+    const [name, setName] = useState(() => (editingCampaign?.name || "").replace(/^\(EMERGENCY\)\s*/i, ""));
+    const [age, setAge] = useState(editingCampaign?.age ? String(editingCampaign.age) : "");
+    const [description, setDescription] = useState(editingCampaign?.description || "");
+    const [goal, setGoal] = useState(editingCampaign?.goal ? String(editingCampaign.goal) : "100");
+    const [deadline, setDeadline] = useState(editingCampaign?.deadline ? String(editingCampaign.deadline) : "30");
+    const [isEmergency, setIsEmergency] = useState(!!editingCampaign?.isEmergency);
 
     // Form State (Step 2) — the campaign cover is a SINGLE image; the other
-    // document categories can each hold MULTIPLE files of any type.
-    const [campaignImage, setCampaignImage] = useState<File | null>(null);
-    const [idImages, setIdImages] = useState<File[]>([]);
-    const [requirementImages, setRequirementImages] = useState<File[]>([]);
-    const [barangayCertificates, setBarangayCertificates] = useState<File[]>([]);
-    const [solicitationPermits, setSolicitationPermits] = useState<File[]>([]);
+    // document categories can each hold MULTIPLE files of any type. Previously
+    // uploaded files (when resubmitting) start out as "existing" attachments.
+    const [campaignImage, setCampaignImage] = useState<Attachment | null>(
+        editingCampaign?.imageUrl ? { kind: "existing", url: editingCampaign.imageUrl } : null
+    );
+    const [idImages, setIdImages] = useState<Attachment[]>(() => toAttachments(editingCampaign?.idImages));
+    const [requirementImages, setRequirementImages] = useState<Attachment[]>(() => toAttachments(editingCampaign?.requirementImages));
+    const [barangayCertificates, setBarangayCertificates] = useState<Attachment[]>(() => toAttachments(editingCampaign?.barangayCertificates));
+    const [solicitationPermits, setSolicitationPermits] = useState<Attachment[]>(() => toAttachments(editingCampaign?.solicitationPermits));
 
     // --- Step 3 Agreements ---
     const [agreements, setAgreements] = useState({
@@ -211,18 +290,38 @@ export default function CreateCampaignModal({
     };
 
     // --- Generic add/remove helpers for the multi-file attachment categories ---
-    const addFilesTo = (setter: React.Dispatch<React.SetStateAction<File[]>>) => (newFiles: FileList | null) => {
+    const addFilesTo = (setter: React.Dispatch<React.SetStateAction<Attachment[]>>) => (newFiles: FileList | null) => {
         if (!newFiles || newFiles.length === 0) return;
+
+        const incoming = Array.from(newFiles);
+        const accepted = incoming.filter(isAcceptedDocumentFile);
+        const rejected = incoming.filter((f) => !isAcceptedDocumentFile(f));
+
+        if (rejected.length > 0) {
+            setStatusModal({
+                isOpen: true,
+                type: "error",
+                title: "Unsupported File Type",
+                message: `Only images, PDFs, and Word/Excel/PowerPoint documents are accepted. This file type isn't supported: ${rejected.map((f) => f.name).join(", ")}`,
+            });
+        }
+
+        if (accepted.length === 0) return;
+
         setter((prev) => {
-            const existingKeys = new Set(prev.map((f) => `${f.name}-${f.size}-${f.lastModified}`));
-            const toAdd = Array.from(newFiles).filter(
-                (f) => !existingKeys.has(`${f.name}-${f.size}-${f.lastModified}`)
+            const existingKeys = new Set(
+                prev
+                    .filter((a): a is { kind: "new"; file: File } => a.kind === "new")
+                    .map((a) => `${a.file.name}-${a.file.size}-${a.file.lastModified}`)
             );
+            const toAdd: Attachment[] = accepted
+                .filter((f) => !existingKeys.has(`${f.name}-${f.size}-${f.lastModified}`))
+                .map((file) => ({ kind: "new", file }));
             return [...prev, ...toAdd];
         });
     };
 
-    const removeFileFrom = (setter: React.Dispatch<React.SetStateAction<File[]>>) => (index: number) => {
+    const removeFileFrom = (setter: React.Dispatch<React.SetStateAction<Attachment[]>>) => (index: number) => {
         setter((prev) => prev.filter((_, i) => i !== index));
     };
 
@@ -239,6 +338,26 @@ export default function CreateCampaignModal({
         setStep(2);
     };
 
+    // Resolves a single attachment slot to a URL: kept-existing files are
+    // reused as-is, new files get uploaded to Cloudinary.
+    const resolveSingle = async (attachment: Attachment | null): Promise<string> => {
+        if (!attachment) return "";
+        if (attachment.kind === "existing") return attachment.url;
+        return uploadToCloudinary(attachment.file);
+    };
+
+    // Resolves a multi-file category to a URL array: kept-existing URLs pass
+    // through untouched, new files get uploaded in parallel.
+    const resolveMany = async (attachments: Attachment[]): Promise<string[]> => {
+        const existingUrls = attachments
+            .filter((a): a is { kind: "existing"; url: string } => a.kind === "existing")
+            .map((a) => a.url);
+        const newFiles = attachments
+            .filter((a): a is { kind: "new"; file: File } => a.kind === "new")
+            .map((a) => a.file);
+        const uploadedUrls = await uploadManyToCloudinary(newFiles);
+        return [...existingUrls, ...uploadedUrls];
+    };
 
     const handleSubmit = async () => {
         if (!account) {
@@ -268,11 +387,11 @@ export default function CreateCampaignModal({
             setIsSubmitting(true);
 
             const [campUrl, idUrls, reqUrls, barangayUrls, permitUrls] = await Promise.all([
-                uploadToCloudinary(campaignImage),
-                uploadManyToCloudinary(idImages),
-                uploadManyToCloudinary(requirementImages),
-                uploadManyToCloudinary(barangayCertificates),
-                uploadManyToCloudinary(solicitationPermits),
+                resolveSingle(campaignImage),
+                resolveMany(idImages),
+                resolveMany(requirementImages),
+                resolveMany(barangayCertificates),
+                resolveMany(solicitationPermits),
             ]);
 
             const finalName = isEmergency ? `(EMERGENCY) ${name}` : name;
@@ -283,7 +402,7 @@ export default function CreateCampaignModal({
                 return;
             }
 
-            await addDoc(collection(db, "campaigns"), {
+            const payload = {
                 creator: account.address,
                 fullName,
                 name: finalName,
@@ -303,14 +422,34 @@ export default function CreateCampaignModal({
 
                 agreements,
                 status: "pending",
-                createdAt: Date.now()
-            });
+            };
+
+            if (editingCampaign) {
+                // Resubmission: update the SAME document so its history/id is
+                // preserved, but treat it as a brand-new submission — the
+                // created date refreshes to now and any prior rejection notes
+                // are cleared so it lands back in the admin's queue clean.
+                await updateDoc(doc(db, "campaigns", editingCampaign.id), {
+                    ...payload,
+                    createdAt: Date.now(),
+                    resubmittedAt: Date.now(),
+                    rejectionReason: "",
+                    rejectionDetails: "",
+                });
+            } else {
+                await addDoc(collection(db, "campaigns"), {
+                    ...payload,
+                    createdAt: Date.now(),
+                });
+            }
 
             setStatusModal({
                 isOpen: true,
                 type: "success",
                 title: "Success",
-                message: "Your campaign request has been submitted successfully.",
+                message: editingCampaign
+                    ? "Your updated campaign has been resubmitted for review."
+                    : "Your campaign request has been submitted successfully.",
                 onClose: () => {
                     refreshRequests();
                     setIsModalOpen(false);
@@ -332,13 +471,29 @@ export default function CreateCampaignModal({
             <div className="w-[70vw] bg-white p-6 rounded-lg shadow-xl max-h-[95vh] overflow-y-auto relative"
             >
 
-
-
                 {/* HEADER & STEP INDICATOR */}
                 <div className="flex justify-between items-center mb-4">
-                    <p className="text-xl font-bold">New Campaign Request<span style={{ color: 'red' }}>*</span></p>
+                    <p className="text-xl font-bold">
+                        {isResubmission ? "Resubmit Campaign Request" : "New Campaign Request"}
+                        <span style={{ color: 'red' }}>*</span>
+                    </p>
                     <button className="text-gray-500 hover:text-black" onClick={() => setIsModalOpen(false)}>✕</button>
                 </div>
+
+                {/* Resubmission banner: reminds them what was flagged, and that
+                    everything else has already been carried over. */}
+                {isResubmission && (
+                    <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                        <p className="font-bold mb-1">You're fixing a previous submission</p>
+                        <p>Your earlier details and documents are already filled in below — just update whatever the reviewer flagged, then resubmit.</p>
+                        {editingCampaign?.rejectionReason && (
+                            <p className="mt-2">
+                                <strong>Reviewer noted:</strong> {editingCampaign.rejectionReason}
+                                {editingCampaign?.rejectionDetails ? ` — ${editingCampaign.rejectionDetails}` : ""}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* --- Progress Bar --- */}
                 <div className="w-full bg-slate-100 rounded-full h-2 mb-10 border border-slate-200">
@@ -441,8 +596,9 @@ export default function CreateCampaignModal({
                     {step === 2 && (
                         <div className="space-y-4 animate-fadeIn">
                             <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-lg p-3">
-                                You can attach <strong>multiple files</strong> per document, and any file type is
-                                accepted (photos, scans, PDFs, Word docs, etc.).
+                                You can attach <strong>multiple files</strong> per document. Accepted formats:
+                                images, PDFs, and Word/Excel/PowerPoint documents.
+                                {isResubmission && " Files already on file are shown in blue — remove and replace only what needs fixing."}
                             </div>
 
                             {/* 1. Campaign Image (single) */}
@@ -454,7 +610,7 @@ export default function CreateCampaignModal({
                                     Add one clear cover photo that represents your campaign. This will be displayed on the campaign page.
                                 </p>
                                 <SingleImageAttachment
-                                    file={campaignImage}
+                                    attachment={campaignImage}
                                     onChange={setCampaignImage}
                                 />
                             </div>
@@ -481,7 +637,7 @@ export default function CreateCampaignModal({
                                     <span className="text-red-600">*</span> 3. Proof of Need (Requirements)
                                 </label>
                                 <p className="text-xs text-slate-600 mb-2 italic">
-                                    Upload medical bill(s), prescription(s), hospital certificate, etc. — any format.
+                                    Upload medical bill(s), prescription(s), hospital certificate, etc. — photo, scan, PDF, or document file.
                                 </p>
                                 <FileAttachments
                                     label="Proof of Need"
@@ -628,7 +784,7 @@ export default function CreateCampaignModal({
                                     className={`text-white font-bold py-3 px-6 rounded transition-colors shadow-lg ${!allAgreementsChecked ? "bg-slate-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
                                         }`}
                                 >
-                                    {isSubmitting ? "Uploading..." : "Submit for Approval"}
+                                    {isSubmitting ? "Uploading..." : isResubmission ? "Resubmit for Approval" : "Submit for Approval"}
                                 </button>
                             </div>
 

@@ -7,7 +7,7 @@ import RejectionGuidanceModal from "../../components/RejectionGuidanceModal";
 import { useState, useEffect, useMemo } from "react";
 import { getContract } from "thirdweb";
 import { useActiveAccount, useReadContract } from "thirdweb/react";
-import CreateCampaignModal from "../../components/CreateCampaignModal";
+import CreateCampaignModal, { EditingCampaign } from "../../components/CreateCampaignModal";
 
 
 // Imports for Data & Image
@@ -26,6 +26,14 @@ type CampaignRequest = {
     rejectionDetails?: string;   // <-- add this
     isEmergency?: boolean;
     createdAt?: number;
+    age?: number;
+    goal?: string | number;
+    deadline?: number;
+    imageUrl?: string;
+    idImages?: string[];
+    requirementImages?: string[];
+    barangayCertificates?: string[];
+    solicitationPermits?: string[];
 };
 
 const ITEMS_PER_PAGE = 6;
@@ -38,6 +46,7 @@ export default function DashboardPage() {
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [isRejectionModalOpen, setIsRejectionModalOpen] = useState<boolean>(false);
     const [selectedRejectedRequest, setSelectedRejectedRequest] = useState<CampaignRequest | null>(null);
+    const [resubmitCampaign, setResubmitCampaign] = useState<EditingCampaign | null>(null);
     const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'successful' | 'failed'>('all');
 
     // Data State
@@ -130,7 +139,10 @@ const fetchPendingRequests = async () => {
                 </div>
                 <button
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium shadow"
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => {
+                        setResubmitCampaign(null);
+                        setIsModalOpen(true);
+                    }}
                 >
                     Request for Campaign and Assistance
                 </button>
@@ -155,7 +167,7 @@ const fetchPendingRequests = async () => {
                                         key={req.id}
                                         className={`bg-white p-4 rounded shadow-sm border border-gray-200 relative flex flex-col h-56`}
                                         onClick={() => {
-                                            if (req.status === "rejected") {
+                                            if (req.status === "rejected" || req.status === "changes_requested") {
                                                 setSelectedRejectedRequest(req);
                                                 setIsRejectionModalOpen(true);
                                             }
@@ -194,12 +206,14 @@ const fetchPendingRequests = async () => {
                                             <span
                                                 className={`text-xs font-bold px-2 py-1 rounded uppercase flex-shrink-0 ml-1 ${req.status === "rejected"
                                                     ? "bg-red-100 text-red-700"
-                                                    : req.status === "approved"
-                                                        ? "bg-green-100 text-green-700"
-                                                        : "bg-yellow-100 text-yellow-700"
+                                                    : req.status === "changes_requested"
+                                                        ? "bg-amber-100 text-amber-700"
+                                                        : req.status === "approved"
+                                                            ? "bg-green-100 text-green-700"
+                                                            : "bg-yellow-100 text-yellow-700"
                                                     }`}
                                             >
-                                                {req.status}
+                                                {req.status === "changes_requested" ? "needs changes" : req.status}
                                             </span>
                                         </div>
                                         <div className="w-full h-px bg-slate-200 my-1" />
@@ -211,9 +225,9 @@ const fetchPendingRequests = async () => {
 
 
 
-                                        {req.status === "rejected" && (
-                                            <div className="text-xs text-red-600 bg-red-50 p-1.5 rounded mt-auto text-center font-bold">
-                                                View reason
+                                        {(req.status === "rejected" || req.status === "changes_requested") && (
+                                            <div className={`text-xs p-1.5 rounded mt-auto text-center font-bold ${req.status === "changes_requested" ? "text-amber-700 bg-amber-50" : "text-red-600 bg-red-50"}`}>
+                                                {req.status === "changes_requested" ? "Fix & resubmit" : "View reason"}
                                             </div>
                                         )}
                                     </div>
@@ -306,8 +320,12 @@ const fetchPendingRequests = async () => {
 
             {isModalOpen && (
                 <CreateCampaignModal
-                    setIsModalOpen={setIsModalOpen}
+                    setIsModalOpen={(open) => {
+                        setIsModalOpen(open);
+                        if (!open) setResubmitCampaign(null);
+                    }}
                     refreshRequests={fetchPendingRequests}
+                    editingCampaign={resubmitCampaign}
                 />
             )}
 
@@ -319,7 +337,10 @@ const fetchPendingRequests = async () => {
                         setSelectedRejectedRequest(null);
                     }}
                     request={selectedRejectedRequest}
-                    openCreateModal={() => setIsModalOpen(true)}
+                    openCreateModal={() => {
+                        setResubmitCampaign(selectedRejectedRequest);
+                        setIsModalOpen(true);
+                    }}
                 />
             )}
 

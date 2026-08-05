@@ -16,6 +16,9 @@ export interface Campaign {
   fullName?: string;
   imageUrl?: string;
   createdAt?: number;
+  rejectionReason?: string;
+  rejectionDetails?: string;
+  changesRequestedAt?: number;
 }
 
 export const getPendingCampaigns = async (): Promise<Campaign[]> => {
@@ -33,6 +36,23 @@ export const getPendingCampaigns = async (): Promise<Campaign[]> => {
   return list;
 };
 
+// Campaigns the admin has sent back to the beneficiary for changes. These sit
+// on the beneficiary's dashboard (not the admin queue) until they fix and
+// resubmit — at which point status flips back to "pending" automatically.
+export const getChangesRequestedCampaigns = async (): Promise<Campaign[]> => {
+  const db = getDb();
+  if (!db) throw new Error("Firestore not available on server");
+
+  const q = query(collection(db, "campaigns"), where("status", "==", "changes_requested"));
+  const snapshot = await getDocs(q);
+
+  const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign));
+
+  list.sort((a, b) => (b.changesRequestedAt || 0) - (a.changesRequestedAt || 0));
+
+  return list;
+};
+
 export const rejectCampaignById = async (
   campaignId: string,
   reason: string,
@@ -46,6 +66,26 @@ export const rejectCampaignById = async (
     rejectionReason: reason,
     rejectionDetails: details || "",
     rejectedAt: Date.now(),
+  });
+};
+
+// "Soft" rejection: sends the campaign back to the beneficiary's dashboard
+// (status: "changes_requested") with a note on what to fix, instead of
+// closing it out entirely. It disappears from the admin's pending queue and
+// only reappears there once the beneficiary resubmits.
+export const requestCampaignChangesById = async (
+  campaignId: string,
+  reason: string,
+  details: string
+) => {
+  const db = getDb();
+  if (!db) throw new Error("Firestore not available");
+
+  await updateDoc(doc(db, "campaigns", campaignId), {
+    status: "changes_requested",
+    rejectionReason: reason,
+    rejectionDetails: details || "",
+    changesRequestedAt: Date.now(),
   });
 };
 
